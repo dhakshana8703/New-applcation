@@ -1,3 +1,4 @@
+import html
 import json
 import re
 import urllib.request
@@ -145,7 +146,8 @@ def parse_cvent_page(url: str, timeout: int = 12) -> Dict[str, Any]:
     # Schema JSON extraction
     schema = extract_schema_json(html) or {}
 
-    event_name = schema.get("name") or clean_title or raw_title
+    raw_event_name = schema.get("name") or clean_title or raw_title
+    event_name = html.unescape(raw_event_name).strip() if raw_event_name else ""
     start_date = schema.get("startDate") or ""
     end_date = schema.get("endDate") or ""
     
@@ -158,15 +160,15 @@ def parse_cvent_page(url: str, timeout: int = 12) -> Dict[str, Any]:
     country = ""
     
     if isinstance(location_data, dict):
-        venue_name = location_data.get("name", "")
+        venue_name = html.unescape(str(location_data.get("name", ""))).strip()
         addr = location_data.get("address", {})
         if isinstance(addr, dict):
-            street_address = addr.get("streetAddress", "")
-            city = addr.get("addressLocality", "")
-            region = addr.get("addressRegion", "")
-            country = addr.get("addressCountry", "")
+            street_address = html.unescape(str(addr.get("streetAddress", ""))).strip()
+            city = html.unescape(str(addr.get("addressLocality", ""))).strip()
+            region = html.unescape(str(addr.get("addressRegion", ""))).strip()
+            country = html.unescape(str(addr.get("addressCountry", ""))).strip()
     elif isinstance(location_data, str):
-        venue_name = location_data
+        venue_name = html.unescape(location_data).strip()
 
     # Attendance mode
     attendance_mode = str(schema.get("eventAttendanceMode", ""))
@@ -185,9 +187,9 @@ def parse_cvent_page(url: str, timeout: int = 12) -> Dict[str, Any]:
     organizer = ""
     org_data = schema.get("organizer", {})
     if isinstance(org_data, dict):
-        organizer = org_data.get("name", "")
+        organizer = html.unescape(str(org_data.get("name", ""))).strip()
     elif isinstance(org_data, str):
-        organizer = org_data
+        organizer = html.unescape(org_data).strip()
 
     parsed_domain = urlparse(resolved_url).netloc.lower()
     if not organizer and parsed_domain != "web.cvent.com":

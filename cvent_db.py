@@ -51,7 +51,9 @@ def init_cvent_tables():
     safe_alter_add_column(conn, "cvent", "contact_phone", "TEXT DEFAULT ''")
     safe_alter_add_column(conn, "cvent", "general_emails", "TEXT DEFAULT ''")
     safe_alter_add_column(conn, "cvent", "contact_type", "TEXT DEFAULT 'In-House'")
+    safe_alter_add_column(conn, "cvent", "start_date_iso", "TEXT DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_cvent_company_id ON cvent(company_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_cvent_start_date_iso ON cvent(start_date_iso)")
 
     # 2. Pure Dedicated Cvent Companies Table
     conn.execute(adapt_create_table_sql("""
@@ -114,6 +116,23 @@ def _get_scalar(row, default=0):
         return default
 
 
+def parse_date_to_iso(date_str: str) -> str:
+    """Convert arbitrary event date string to sortable ISO-8601 (YYYY-MM-DD)."""
+    if not date_str:
+        return ""
+    months = {'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+              'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'}
+    m = re.search(r'([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})', date_str) or re.search(r'([A-Za-z]{3})\s+(\d{1,2}).*?(\d{4})', date_str)
+    if m:
+        mo = months.get(m.group(1).lower())
+        if mo:
+            return f"{m.group(3)}-{mo}-{int(m.group(2)):02d}"
+    m2 = re.search(r'(\d{4})-(\d{2})-(\d{2})', date_str)
+    if m2:
+        return m2.group(0)
+    return ""
+
+
 def compute_status(event_url, creator_email):
     """Determine event completeness status."""
     if creator_email and creator_email.strip():
@@ -164,6 +183,7 @@ def upsert_cvent_event(data):
     general_emails = data.get("general_emails", "").strip()
     contact_type = data.get("contact_type", "").strip() or "In-House"
     status = compute_status(event_url, creator_email)
+    start_date_iso = parse_date_to_iso(start_date)
 
     conn = get_connection()
     row = conn.execute("SELECT id FROM cvent WHERE cvent_url = ?", (cvent_url,)).fetchone()
@@ -175,6 +195,7 @@ def upsert_cvent_event(data):
                 event_url = CASE WHEN ? != '' THEN ? ELSE event_url END,
                 event_name = ?,
                 start_date = CASE WHEN ? != '' THEN ? ELSE start_date END,
+                start_date_iso = CASE WHEN ? != '' THEN ? ELSE start_date_iso END,
                 end_date = CASE WHEN ? != '' THEN ? ELSE end_date END,
                 venue_name = CASE WHEN ? != '' THEN ? ELSE venue_name END,
                 city = CASE WHEN ? != '' THEN ? ELSE city END,
@@ -193,6 +214,7 @@ def upsert_cvent_event(data):
             event_url, event_url,
             event_name,
             start_date, start_date,
+            start_date_iso, start_date_iso,
             end_date, end_date,
             venue_name, venue_name,
             city, city,
@@ -210,13 +232,13 @@ def upsert_cvent_event(data):
     else:
         cur = conn.execute("""
             INSERT INTO cvent (
-                cvent_url, event_url, event_name, start_date, end_date,
+                cvent_url, event_url, event_name, start_date, start_date_iso, end_date,
                 venue_name, city, state, country, organizer_company,
                 creator_email, contact_name, contact_phone, general_emails,
                 contact_type, status, scrape_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (
-            cvent_url, event_url, event_name, start_date, end_date,
+            cvent_url, event_url, event_name, start_date, start_date_iso, end_date,
             venue_name, city, state, country, organizer_company,
             creator_email, contact_name, contact_phone, general_emails,
             contact_type, status
@@ -263,7 +285,7 @@ def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sor
     if sort_by == "name":
         order_clause = f"ORDER BY c.event_name {'DESC' if sort_dir == 'desc' else 'ASC'}"
     elif sort_by == "date":
-        order_clause = f"ORDER BY (CASE WHEN c.start_date = '' THEN 1 ELSE 0 END), c.start_date {'DESC' if sort_dir == 'desc' else 'ASC'}"
+        order_clause = f"ORDER BY (CASE WHEN c.start_date_iso = '' THEN 1 ELSE 0 END), c.start_date_iso {'DESC' if sort_dir == 'desc' else 'ASC'}"
     elif sort_by == "company":
         order_clause = f"ORDER BY (CASE WHEN c.organizer_company = '' THEN 1 ELSE 0 END), c.organizer_company {'DESC' if sort_dir == 'desc' else 'ASC'}"
     elif sort_by == "city":
@@ -274,13 +296,17 @@ def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sor
         # High-fidelity events with both dates & emails first
         order_clause = "ORDER BY (CASE WHEN c.start_date != '' AND c.creator_email != '' THEN 0 WHEN c.creator_email != '' THEN 1 ELSE 2 END), c.id ASC"
 
-    # Single-roundtrip query with COUNT(*) OVER() and relational people_count
+    # Fetch accurate total count without pagination collapse
+    count_sql = f"SELECT COUNT(*) as total FROM cvent c {where_clause}"
+    count_row = conn.execute(count_sql, params).fetchone()
+    total_count = _get_scalar(count_row, 0)
+
+    # Data query with relational people_count
     data_sql = f"""
-        SELECT c.id, c.cvent_url, c.event_url, c.event_name, c.start_date, c.end_date,
+        SELECT c.id, c.cvent_url, c.event_url, c.event_name, c.start_date, c.start_date_iso, c.end_date,
                c.venue_name, c.city, c.state, c.country, c.organizer_company,
                c.creator_email, c.status, c.company_id, c.scrape_date,
                comp.name as company_name, comp.domain as company_domain, comp.website as company_website,
-               COUNT(*) OVER() as full_count,
                COALESCE(p_counts.people_count, 0) as people_count
         FROM cvent c
         LEFT JOIN cvent_companies comp ON c.company_id = comp.id
@@ -296,10 +322,6 @@ def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sor
     data_params = list(params) + [limit, offset]
     rows = conn.execute(data_sql, data_params).fetchall()
     conn.close()
-
-    total_count = 0
-    if rows:
-        total_count = rows[0].get("full_count", 0) if hasattr(rows[0], "get") else rows[0]["full_count"]
 
     events_list = []
     for r in rows:
@@ -465,10 +487,11 @@ def bulk_delete_cvent_events(event_ids: list):
         return 0
     conn = get_connection()
     placeholders = ",".join("?" for _ in event_ids)
-    conn.execute(f"DELETE FROM cvent WHERE id IN ({placeholders})", tuple(event_ids))
+    cur = conn.execute(f"DELETE FROM cvent WHERE id IN ({placeholders})", tuple(event_ids))
     conn.commit()
+    deleted = cur.rowcount if hasattr(cur, "rowcount") and cur.rowcount is not None and cur.rowcount >= 0 else len(event_ids)
     conn.close()
-    return len(event_ids)
+    return deleted
 
 
 # ==============================================================================

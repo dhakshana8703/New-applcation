@@ -48,7 +48,9 @@ CACHE_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cvent_
 def init_cache_db():
     import sqlite3
     try:
-        conn = sqlite3.connect(CACHE_DB_PATH)
+        conn = sqlite3.connect(CACHE_DB_PATH, timeout=15.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=15000")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS scraped_cache (
                 cvent_url TEXT PRIMARY KEY,
@@ -68,7 +70,7 @@ def get_cached_urls() -> set:
     init_cache_db()
     import sqlite3
     try:
-        conn = sqlite3.connect(CACHE_DB_PATH)
+        conn = sqlite3.connect(CACHE_DB_PATH, timeout=15.0)
         rows = conn.execute("SELECT cvent_url FROM scraped_cache").fetchall()
         conn.close()
         return {r[0] for r in rows if r[0]}
@@ -80,7 +82,7 @@ def cache_scraped_url(cvent_url: str, event_name: str = ""):
     init_cache_db()
     import sqlite3
     try:
-        conn = sqlite3.connect(CACHE_DB_PATH)
+        conn = sqlite3.connect(CACHE_DB_PATH, timeout=15.0)
         conn.execute("""
             INSERT INTO scraped_cache (cvent_url, event_name, scraped_at)
             VALUES (?, ?, CURRENT_TIMESTAMP)

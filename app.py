@@ -259,9 +259,9 @@ def api_test_url():
     if any(netloc.startswith(p) for p in ["localhost", "127.", "169.254.", "10.", "192.168.", "172.16.", "0.0.0.0"]):
         return jsonify({"status": "error", "message": "Internal/private network addresses are blocked."}), 400
 
-    is_cvent = "cvent.com" in netloc or "/event/" in parsed.path.lower()
+    is_cvent = (netloc == "cvent.com" or netloc.endswith(".cvent.com")) and "/event/" in parsed.path.lower()
     if not is_cvent:
-        return jsonify({"status": "error", "message": "Target must be a valid Cvent event registration URL."}), 400
+        return jsonify({"status": "error", "message": "Target must be a valid Cvent event registration URL (e.g. web.cvent.com/event/...)."} ), 400
 
     record = cvent_engine.process_and_save_event(url)
     if record:
