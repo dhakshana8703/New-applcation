@@ -11,14 +11,49 @@ import os
 import re
 import csv
 import io
+import secrets
 from flask import Flask, render_template, request, jsonify, Response
 
 import cvent_db
 import cvent_engine
 
 app = Flask(__name__)
-app.secret_key = "cvent-secret-key-isolated-engine"
+app.secret_key = os.environ.get("SECRET_KEY", "cvent-secret-key-isolated-engine")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+
+# ==============================================================================
+# AUTHENTICATION (HTTP Basic Auth)
+# ==============================================================================
+
+@app.before_request
+def require_basic_auth():
+    """Protect the dashboard if APP_USERNAME and APP_PASSWORD are set."""
+    auth_user = os.environ.get("APP_USERNAME")
+    auth_pass = os.environ.get("APP_PASSWORD")
+
+    if not auth_user or not auth_pass:
+        return None
+
+    if request.path == "/healthz":
+        return None
+
+    auth = request.authorization
+    if not auth or not (
+        secrets.compare_digest(auth.username or "", auth_user) and
+        secrets.compare_digest(auth.password or "", auth_pass)
+    ):
+        return Response(
+            "Access Denied: Please provide valid credentials to access the Cvent Intelligence Dashboard.\n",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Cvent Intelligence Portal"'}
+        )
+
+
+@app.route("/healthz")
+def healthz():
+    """Unauthenticated health check endpoint for monitoring."""
+    return jsonify({"status": "healthy"}), 200
 
 
 @app.route("/")
