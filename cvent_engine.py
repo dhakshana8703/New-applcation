@@ -143,10 +143,16 @@ def discover_live_urls(time_filter: str = "qdr:m3", max_pages: int = 5, progress
             progress_callback(msg)
         return []
 
+    # 100% Category-Agnostic Discovery Queries based on Cvent's Universal Structural UI
     queries = [
         "site:web.cvent.com/event",
-        "site:web.cvent.com/event conference",
-        "site:web.cvent.com/event summit"
+        'site:web.cvent.com/event "Register"',
+        'site:web.cvent.com/event "Online registration by Cvent"',
+        'site:web.cvent.com/event "Summary"',
+        'site:web.cvent.com/event "When"',
+        'site:web.cvent.com/event "Contact Us"',
+        "site:web.cvent.com/event 2026",
+        "site:web.cvent.com/event 2027"
     ]
     seen_urls = set()
     results = []
