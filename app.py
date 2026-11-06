@@ -217,7 +217,7 @@ def api_export_people_csv():
 @app.route("/api/scraper/start", methods=["POST"])
 def api_start_scraper():
     data = request.get_json() or {}
-    time_filter = data.get("time_filter", "qdr:m3")
+    time_filter = data.get("time_filter", "qdr:m6")
     max_pages = int(data.get("max_pages", 5))
 
     started = cvent_engine.runner.run_discovery_pipeline(

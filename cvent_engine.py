@@ -125,14 +125,16 @@ def get_serper_key() -> Optional[str]:
     return None
 
 
-def discover_live_urls(time_filter: str = "qdr:m3", max_pages: int = 5, progress_callback=None) -> List[str]:
+def discover_live_urls(time_filter: str = "qdr:m6", max_pages: int = 5, progress_callback=None) -> List[str]:
     """
     Discovers live web.cvent.com event URLs using Serper API.
     Supports time filters:
       - 'qdr:d' (past 24 hours)
       - 'qdr:w' (past 1 week)
       - 'qdr:m' (past 1 month)
-      - 'qdr:m3' (past 3 months - default)
+      - 'qdr:m3' (past 3 months)
+      - 'qdr:m6' (past 6 months - default)
+      - 'qdr:y' (past 1 year)
       - '' (all-time / any time)
     """
     api_key = get_serper_key()
@@ -161,43 +163,52 @@ def discover_live_urls(time_filter: str = "qdr:m3", max_pages: int = 5, progress
         if progress_callback:
             progress_callback(f"Query {q_idx+1}/{len(queries)}: '{q}' (time filter: {time_filter or 'any'})...")
         for page in range(1, max_pages + 1):
-            try:
-                payload_data = {"q": q, "page": page, "num": 10}
-                if time_filter:
-                    payload_data["tbs"] = time_filter
+            success = False
+            for attempt in range(3):
+                try:
+                    payload_data = {"q": q, "page": page, "num": 10}
+                    if time_filter:
+                        payload_data["tbs"] = time_filter
 
-                payload = json.dumps(payload_data).encode("utf-8")
-                req = urllib.request.Request(
-                    "https://google.serper.dev/search",
-                    data=payload,
-                    headers={
-                        "X-API-KEY": api_key,
-                        "Content-Type": "application/json"
-                    }
-                )
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                    payload = json.dumps(payload_data).encode("utf-8")
+                    req = urllib.request.Request(
+                        "https://google.serper.dev/search",
+                        data=payload,
+                        headers={
+                            "X-API-KEY": api_key,
+                            "Content-Type": "application/json"
+                        }
+                    )
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
 
-                organic = data.get("organic", [])
-                if not organic:
+                    organic = data.get("organic", [])
+                    if not organic:
+                        success = True
+                        break
+
+                    page_new = 0
+                    for item in organic:
+                        link = item.get("link", "")
+                        m = re.match(r"(https?://web\.cvent\.com/event/[a-f0-9\-]+)", link, re.I)
+                        if m:
+                            canonical = m.group(1)
+                            if canonical not in seen_urls:
+                                seen_urls.add(canonical)
+                                results.append(canonical)
+                                page_new += 1
+                    if progress_callback:
+                        progress_callback(f"  Page {page}: found {len(organic)} results ({page_new} new Cvent URLs, total: {len(results)})")
+                    success = True
                     break
-
-                page_new = 0
-                for item in organic:
-                    link = item.get("link", "")
-                    m = re.match(r"(https?://web\.cvent\.com/event/[a-f0-9\-]+)", link, re.I)
-                    if m:
-                        canonical = m.group(1)
-                        if canonical not in seen_urls:
-                            seen_urls.add(canonical)
-                            results.append(canonical)
-                            page_new += 1
-                if progress_callback:
-                    progress_callback(f"  Page {page}: found {len(organic)} results ({page_new} new Cvent URLs, total: {len(results)})")
-            except Exception as e:
-                print(f"[!] Error discovering URLs: {e}")
-                if progress_callback:
-                    progress_callback(f"  Page {page} error: {e}")
+                except Exception as e:
+                    if attempt < 2:
+                        time.sleep(1.5)
+                        continue
+                    print(f"[!] Error discovering URLs (page {page}): {e}")
+                    if progress_callback:
+                        progress_callback(f"  Page {page} error: {e}")
+            if not success or (not organic and success):
                 break
 
     return results
@@ -312,7 +323,7 @@ class CventScraperRunner:
             self.should_stop = True
             self.status_message = "Stopping scraper..."
 
-    def run_discovery_pipeline(self, time_filter: str = "qdr:m3", max_pages: int = 5, max_workers: int = 5):
+    def run_discovery_pipeline(self, time_filter: str = "qdr:m6", max_pages: int = 5, max_workers: int = 5):
         """Execute discovery and scraping in a background thread."""
         with self._lock:
             if self.is_running:
@@ -399,7 +410,10 @@ class CventScraperRunner:
 
             # Re-sync companies after batch run
             self.log("Syncing extracted Cvent companies...")
-            cvent_db.extract_companies_from_cvent()
+            try:
+                cvent_db.extract_companies_from_cvent()
+            except Exception as ce:
+                self.log(f"Company sync notice: {ce}")
             self.log(f"Pipeline complete! Successfully processed {self.scraped_count} events.")
 
         except Exception as e:
