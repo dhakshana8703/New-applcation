@@ -3,6 +3,7 @@ Ground-Truth Re-extraction Engine for Cvent
 Authoritative, concurrent, multi-entity scraper & reconciler.
 """
 
+import os
 import sys
 import re
 import json
@@ -12,8 +13,12 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import psycopg2
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
 
-DATABASE_URL = 'postgresql://neondb_owner:npg_IGE71mZURpNc@ep-sparkling-breeze-aodc615z-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+load_dotenv()
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required.")
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
