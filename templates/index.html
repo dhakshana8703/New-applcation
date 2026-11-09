@@ -730,7 +730,10 @@
             </div>
           </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button class="btn" onclick="promptApolloKey()" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);">
+            🔑 <span id="apolloKeyBtnText">Set Apollo Key</span>
+          </button>
           <span id="apolloBatchStatus" style="font-size: 12px; color: var(--text-muted);">Ready (Safety cap: 20 credits)</span>
           <button class="btn btn-primary" id="btnRunApolloBatch" onclick="runApolloBatch(5)" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600;">
             🚀 Run Batch (First 5 Events)
@@ -1012,6 +1015,7 @@
     function changePeoplePageSize(size) {
       peopleLimit = parseInt(size) || 25;
       fetchPeople(0);
+      checkApolloStatus();
     }
 
     let companiesLoaded = false;
@@ -1034,6 +1038,7 @@
         document.getElementById("panePeople").classList.add("active");
         if (!peopleLoaded) {
           fetchPeople(0);
+      checkApolloStatus();
           peopleLoaded = true;
         }
       } else if (tabName === 'companies') {
@@ -1055,12 +1060,14 @@
       document.getElementById("peopleFilterBannerText").innerText = `Filtered to Contacts for Event #${eventId}: "${eventName || ''}"`;
       switchTab('people');
       fetchPeople(0);
+      checkApolloStatus();
     }
 
     function clearPeopleEventFilter() {
       currentFilterEventId = null;
       document.getElementById("peopleFilterBanner").style.display = "none";
       fetchPeople(0);
+      checkApolloStatus();
     }
 
     function openModal(id) { document.getElementById(id).classList.add("active"); }
@@ -1607,6 +1614,43 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+        async function checkApolloStatus() {
+      try {
+        const res = await fetch("/api/apollo/status");
+        const data = await res.json();
+        const btnText = document.getElementById("apolloKeyBtnText");
+        const statusSpan = document.getElementById("apolloBatchStatus");
+        if (data.has_api_key) {
+          btnText.innerText = `Key: ${data.masked_key}`;
+          statusSpan.innerHTML = `<span style="color:#10b981; font-weight:600;">● Live Key Connected</span> (Cap: 20 cr)`;
+        } else {
+          btnText.innerText = "Set Apollo Key";
+          statusSpan.innerHTML = `<span style="color:#f59e0b;">● Dry-Run Mode</span> (No Key Set)`;
+        }
+      } catch (e) {}
+    }
+
+    async function promptApolloKey() {
+      const key = prompt("Enter your Apollo API Key:\n\n(This will be stored in your session and used to enrich P1 & P2 candidates safely)");
+      if (!key) return;
+      try {
+        const res = await fetch("/api/apollo/set-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: key.trim() })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert("Apollo API Key successfully saved!");
+          checkApolloStatus();
+        } else {
+          alert("Error saving key: " + (data.error || "Unknown"));
+        }
+      } catch (err) {
+        alert("Failed to save key: " + err.message);
+      }
     }
 
     async function runApolloBatch(batchSize = 5) {

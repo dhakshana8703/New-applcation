@@ -313,10 +313,23 @@ def api_test_url():
 def api_apollo_status():
     from apollo_enricher import ApolloEnricher
     enricher = ApolloEnricher()
+    key = os.environ.get("APOLLO_API_KEY", "").strip()
+    masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else ("Set" if key else "Not Set")
     return jsonify({
         "configured": enricher.is_configured(),
-        "has_api_key": bool(os.environ.get("APOLLO_API_KEY"))
+        "has_api_key": bool(key),
+        "masked_key": masked
     })
+
+
+@app.route("/api/apollo/set-key", methods=["POST"])
+def api_apollo_set_key():
+    payload = request.get_json() or {}
+    key = payload.get("api_key", "").strip()
+    if not key:
+        return jsonify({"error": "Empty API key provided"}), 400
+    os.environ["APOLLO_API_KEY"] = key
+    return jsonify({"status": "ok", "message": "Apollo API key successfully saved!"})
 
 
 @app.route("/api/apollo/enrich-batch", methods=["POST"])
