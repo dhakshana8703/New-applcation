@@ -21,6 +21,7 @@ Target Personas:
 Safety & Senior Engineering Constraints:
   - 0-credit search executed before any paid profile match.
   - Strict deduplication: never spend credits on already enriched contacts.
+  - Creator enriched and classified as P1, P2 or Neither (Priority: Primary / Secondary / Not Selected).
   - Max credit cap per batch (default 20 credits for 5 events).
   - Rate limiting / backoff between requests.
 """
@@ -94,7 +95,7 @@ class ApolloEnricher:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("APOLLO_API_KEY", "").strip()
+        self.api_key = (api_key or os.environ.get("APOLLO_API_KEY", "")).strip()
         self.headers = {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache"
@@ -207,7 +208,7 @@ class ApolloEnricher:
         return None
 
     # --------------------------------------------------------------------------
-    # BATCH PROCESSOR (FIRST 5 EVENTS)
+    # BATCH PROCESSOR (CONFIGURABLE BATCH SIZE)
     # --------------------------------------------------------------------------
     def enrich_event_batch(self, batch_size: int = 5, credit_cap: int = 20) -> Dict[str, Any]:
         """
@@ -217,7 +218,7 @@ class ApolloEnricher:
         conn = get_db_connection()
         cur = conn.cursor() if hasattr(conn, 'cursor') else conn
 
-        # Fetch first N events with valid creator_email or domain that have not been enriched
+        # Fetch first N events with valid creator_email or domain
         cur.execute("""
             SELECT c.id as event_id, c.event_name, c.event_url, c.creator_email, c.organizer_company, comp.domain
             FROM cvent c
@@ -293,13 +294,13 @@ class ApolloEnricher:
             p1_candidate = None
             p2_candidate = None
 
-            # Check creator first
+            # Compare creator first (Scenario 4: Prefer creator if equally ranked)
             if creator_persona == "P1":
                 p1_candidate = creator_profile
             elif creator_persona == "P2":
                 p2_candidate = creator_profile
 
-            # Compare candidates from search
+            # Search results comparison
             for cand in candidates:
                 c_title = cand.get("title", "")
                 persona = classify_title(c_title)
@@ -319,7 +320,7 @@ class ApolloEnricher:
                 if unlocked:
                     p2_candidate.update(unlocked)
 
-            # Save / Update to Database
+            # Save / Update P1
             if p1_candidate:
                 self._upsert_apollo_person(
                     conn, eid, c_org, p1_candidate, persona="P1",
@@ -327,12 +328,24 @@ class ApolloEnricher:
                 )
                 event_summary["p1_selected"] = p1_candidate.get("name") or p1_candidate.get("first_name", "P1 Match")
 
+            # Save / Update P2
             if p2_candidate:
                 self._upsert_apollo_person(
                     conn, eid, c_org, p2_candidate, persona="P2",
                     priority="Secondary", source_url=eurl, is_creator=(p2_candidate == creator_profile)
                 )
                 event_summary["p2_selected"] = p2_candidate.get("name") or p2_candidate.get("first_name", "P2 Match")
+
+            # Scenario 3 & 4: If creator was identified but was neither P1 nor P2, update their profile with real title & mark 'Not Selected'
+            if creator_profile and c_email:
+                if p1_candidate != creator_profile and p2_candidate != creator_profile:
+                    self._upsert_apollo_person(
+                        conn, eid, c_org, creator_profile,
+                        persona=creator_persona,
+                        priority="Not Selected",
+                        source_url=eurl,
+                        is_creator=True
+                    )
 
             event_summary["credits_used"] = self.credits_spent - credits_before
             results.append(event_summary)
