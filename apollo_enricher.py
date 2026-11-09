@@ -20,6 +20,7 @@ Target Personas:
 
 Safety & Senior Engineering Constraints:
   - 0-credit search executed before any paid profile match.
+  - Persistent real-time audit files: apollo_credit_usage.json & apollo_credit_usage.csv.
   - Strict deduplication: never spend credits on already enriched contacts.
   - Creator enriched and classified as P1, P2 or Neither (Priority: Primary / Secondary / Not Selected).
   - Max credit cap per batch (default 20 credits for 5 events).
@@ -34,6 +35,7 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import cvent_db
 from db_compat import get_db_connection
+from credit_tracker import credit_tracker
 
 APOLLO_API_BASE = "https://api.apollo.io/v1"
 
@@ -91,7 +93,7 @@ def classify_title(title: str) -> str:
 
 class ApolloEnricher:
     """
-    Production-grade Apollo Client with strict budget controls and idempotency.
+    Production-grade Apollo Client with strict budget controls and persistent audit logging.
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -109,7 +111,7 @@ class ApolloEnricher:
     # --------------------------------------------------------------------------
     # API 1: Bulk Match Creator (1 credit per match)
     # --------------------------------------------------------------------------
-    def match_creator(self, email: str) -> Optional[Dict[str, Any]]:
+    def match_creator(self, email: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
         """Identify creator's name, title, company and LinkedIn."""
         if not self.is_configured():
             return None
@@ -125,6 +127,14 @@ class ApolloEnricher:
                 matches = data.get("matches", [])
                 if matches and matches[0]:
                     self.credits_spent += 1
+                    credit_tracker.record_usage(
+                        event_id=event_id,
+                        event_name=event_name,
+                        action="match_creator",
+                        endpoint="/people/bulk_match",
+                        target=email,
+                        credits=1
+                    )
                     return matches[0]
         except Exception as e:
             print(f"[Apollo] match_creator failed for {email}: {e}")
@@ -133,7 +143,7 @@ class ApolloEnricher:
     # --------------------------------------------------------------------------
     # API 2: Organization Enrich (1 credit per company, cached)
     # --------------------------------------------------------------------------
-    def enrich_organization(self, domain: str) -> Optional[Dict[str, Any]]:
+    def enrich_organization(self, domain: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
         """Identify company ID and details by domain. Cached locally to avoid credit burn."""
         clean_dom = domain.lower().strip()
         if clean_dom in self.org_cache:
@@ -151,6 +161,14 @@ class ApolloEnricher:
                 if data:
                     self.credits_spent += 1
                     self.org_cache[clean_dom] = data
+                    credit_tracker.record_usage(
+                        event_id=event_id,
+                        event_name=event_name,
+                        action="enrich_organization",
+                        endpoint="/organizations/enrich",
+                        target=domain,
+                        credits=1
+                    )
                     return data
         except Exception as e:
             print(f"[Apollo] enrich_organization failed for {domain}: {e}")
@@ -159,7 +177,7 @@ class ApolloEnricher:
     # --------------------------------------------------------------------------
     # API 3: Search Candidates by Persona Titles (0 credits)
     # --------------------------------------------------------------------------
-    def search_persona_candidates(self, org_id: str, domain: str) -> List[Dict[str, Any]]:
+    def search_persona_candidates(self, org_id: str, domain: str, event_id: Any = None, event_name: str = "") -> List[Dict[str, Any]]:
         """Find P1 and P2 candidates at the organization using free search."""
         if not self.is_configured():
             return []
@@ -180,6 +198,14 @@ class ApolloEnricher:
             r = requests.post(url, json=payload, headers=self.headers, timeout=15)
             if r.status_code == 200:
                 people = r.json().get("people", [])
+                credit_tracker.record_usage(
+                    event_id=event_id,
+                    event_name=event_name,
+                    action="search_persona_candidates",
+                    endpoint="/mixed_people/api_search",
+                    target=domain,
+                    credits=0
+                )
                 return people
         except Exception as e:
             print(f"[Apollo] search_persona_candidates failed: {e}")
@@ -188,7 +214,7 @@ class ApolloEnricher:
     # --------------------------------------------------------------------------
     # API 4: Unlock Verified Work Email (1 credit per match)
     # --------------------------------------------------------------------------
-    def unlock_work_email(self, person_id: str) -> Optional[Dict[str, Any]]:
+    def unlock_work_email(self, person_id: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
         """Retrieve available work email and details for a selected candidate."""
         if not self.is_configured() or not person_id:
             return None
@@ -202,7 +228,16 @@ class ApolloEnricher:
             r = requests.post(url, json=payload, headers=self.headers, timeout=12)
             if r.status_code == 200:
                 self.credits_spent += 1
-                return r.json().get("person")
+                person = r.json().get("person")
+                credit_tracker.record_usage(
+                    event_id=event_id,
+                    event_name=event_name,
+                    action="unlock_work_email",
+                    endpoint="/people/match",
+                    target=person_id,
+                    credits=1
+                )
+                return person
         except Exception as e:
             print(f"[Apollo] unlock_work_email failed for {person_id}: {e}")
         return None
@@ -276,7 +311,7 @@ class ApolloEnricher:
             # Step 1: Identify Creator
             creator_profile = None
             if c_email:
-                creator_profile = self.match_creator(c_email)
+                creator_profile = self.match_creator(c_email, event_id=eid, event_name=ename)
 
             creator_title = creator_profile.get("title", "") if creator_profile else ""
             creator_persona = classify_title(creator_title)
@@ -284,12 +319,12 @@ class ApolloEnricher:
             # Step 2: Identify Organization
             org_id = ""
             if domain:
-                org_info = self.enrich_organization(domain)
+                org_info = self.enrich_organization(domain, event_id=eid, event_name=ename)
                 if org_info:
                     org_id = org_info.get("id", "")
 
             # Step 3: Free 0-credit search for P1 and P2 candidates
-            candidates = self.search_persona_candidates(org_id, domain) if domain else []
+            candidates = self.search_persona_candidates(org_id, domain, event_id=eid, event_name=ename) if domain else []
 
             p1_candidate = None
             p2_candidate = None
@@ -311,12 +346,12 @@ class ApolloEnricher:
 
             # Step 4: Unlock work email for selected candidates (1 credit each)
             if p1_candidate and not p1_candidate.get("email"):
-                unlocked = self.unlock_work_email(p1_candidate.get("id"))
+                unlocked = self.unlock_work_email(p1_candidate.get("id"), event_id=eid, event_name=ename)
                 if unlocked:
                     p1_candidate.update(unlocked)
 
             if p2_candidate and not p2_candidate.get("email"):
-                unlocked = self.unlock_work_email(p2_candidate.get("id"))
+                unlocked = self.unlock_work_email(p2_candidate.get("id"), event_id=eid, event_name=ename)
                 if unlocked:
                     p2_candidate.update(unlocked)
 
@@ -355,9 +390,12 @@ class ApolloEnricher:
         conn.commit()
         conn.close()
 
+        summary = credit_tracker.get_summary()
+
         return {
             "events_processed": events_processed,
-            "total_credits_spent": self.credits_spent,
+            "batch_credits_spent": self.credits_spent,
+            "cumulative_credits_spent": summary.get("total_credits_spent", 0),
             "results": results
         }
 

@@ -312,14 +312,32 @@ def api_test_url():
 @app.route("/api/apollo/status", methods=["GET"])
 def api_apollo_status():
     from apollo_enricher import ApolloEnricher
+    from credit_tracker import credit_tracker
     enricher = ApolloEnricher()
     key = os.environ.get("APOLLO_API_KEY", "").strip()
     masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else ("Set" if key else "Not Set")
+    summary = credit_tracker.get_summary()
     return jsonify({
         "configured": enricher.is_configured(),
         "has_api_key": bool(key),
-        "masked_key": masked
+        "masked_key": masked,
+        "total_credits_spent": summary.get("total_credits_spent", 0),
+        "breakdown": summary.get("breakdown", {})
     })
+
+
+@app.route("/api/apollo/credit-log", methods=["GET"])
+def api_apollo_download_credit_log():
+    from credit_tracker import CSV_PATH
+    if os.path.exists(CSV_PATH):
+        with open(CSV_PATH, "r", encoding="utf-8") as f:
+            data = f.read()
+        return Response(
+            data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=apollo_credit_usage.csv"}
+        )
+    return jsonify({"error": "No log generated yet"}), 404
 
 
 @app.route("/api/apollo/set-key", methods=["POST"])

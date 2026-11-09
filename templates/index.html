@@ -734,6 +734,9 @@
           <button class="btn" onclick="promptApolloKey()" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);">
             🔑 <span id="apolloKeyBtnText">Set Apollo Key</span>
           </button>
+          <a href="/api/apollo/credit-log" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;" title="Download live CSV credit expenditure audit log">
+            📊 Credit Log (CSV)
+          </a>
           <span id="apolloBatchStatus" style="font-size: 12px; color: var(--text-muted);">Ready (Safety cap: 20 credits)</span>
           <button class="btn btn-primary" id="btnRunApolloBatch" onclick="runApolloBatch(5)" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600;">
             🚀 Run Batch (First 5 Events)
@@ -1622,12 +1625,13 @@
         const data = await res.json();
         const btnText = document.getElementById("apolloKeyBtnText");
         const statusSpan = document.getElementById("apolloBatchStatus");
+        const spent = data.total_credits_spent || 0;
         if (data.has_api_key) {
           btnText.innerText = `Key: ${data.masked_key}`;
-          statusSpan.innerHTML = `<span style="color:#10b981; font-weight:600;">● Live Key Connected</span> (Cap: 20 cr)`;
+          statusSpan.innerHTML = `<span style="color:#10b981; font-weight:600;">● Live Key Connected</span> | 💳 <strong>${spent}</strong> credits spent`;
         } else {
           btnText.innerText = "Set Apollo Key";
-          statusSpan.innerHTML = `<span style="color:#f59e0b;">● Dry-Run Mode</span> (No Key Set)`;
+          statusSpan.innerHTML = `<span style="color:#f59e0b;">● Dry-Run Mode</span> | 💳 <strong>${spent}</strong> credits spent`;
         }
       } catch (e) {}
     }

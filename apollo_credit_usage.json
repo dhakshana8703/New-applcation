@@ -1,0 +1,11 @@
+{
+  "total_credits_spent": 0,
+  "last_updated": "",
+  "breakdown": {
+    "match_creator": 0,
+    "enrich_organization": 0,
+    "search_candidates": 0,
+    "unlock_work_email": 0
+  },
+  "history": []
+}
