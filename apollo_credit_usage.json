@@ -1,11 +1,53 @@
 {
-  "total_credits_spent": 0,
-  "last_updated": "",
+  "total_credits_spent": 3,
+  "last_updated": "2026-11-09T13:01:03.013415Z",
   "breakdown": {
     "match_creator": 0,
-    "enrich_organization": 0,
+    "enrich_organization": 1,
     "search_candidates": 0,
-    "unlock_work_email": 0
+    "unlock_work_email": 2,
+    "search_persona_candidates": 0
   },
-  "history": []
+  "history": [
+    {
+      "timestamp": "2026-11-09T13:00:59.023502Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "aarp.org",
+      "credits": 1,
+      "cumulative_total": 1
+    },
+    {
+      "timestamp": "2026-11-09T13:01:00.148304Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 1
+    },
+    {
+      "timestamp": "2026-11-09T13:01:01.981215Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "60a67d80e523e70001fe0268",
+      "credits": 1,
+      "cumulative_total": 2
+    },
+    {
+      "timestamp": "2026-11-09T13:01:03.013415Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54aba0757468693007c98a01",
+      "credits": 1,
+      "cumulative_total": 3
+    }
+  ]
 }

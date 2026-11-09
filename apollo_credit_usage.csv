@@ -1,1 +1,5 @@
 Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative Total
+2026-11-09T13:00:59.023502Z,1,AARP WY 2026 Volunteer Summit,enrich_organization,/organizations/enrich,aarp.org,1,1
+2026-11-09T13:01:00.148304Z,1,AARP WY 2026 Volunteer Summit,search_persona_candidates,/mixed_people/api_search,aarp.org,0,1
+2026-11-09T13:01:01.981215Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,60a67d80e523e70001fe0268,1,2
+2026-11-09T13:01:03.013415Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,54aba0757468693007c98a01,1,3

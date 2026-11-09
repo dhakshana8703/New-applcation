@@ -1054,7 +1054,14 @@ def get_all_cvent_people(limit=50, offset=0, search="", is_creator_filter="all",
         FROM cvent_people p
         LEFT JOIN cvent c ON p.event_id = c.id
         WHERE {where_clause}
-        ORDER BY p.is_creator_email DESC, p.id ASC
+        ORDER BY 
+            CASE 
+                WHEN p.outreach_priority = 'Primary' THEN 1
+                WHEN p.outreach_priority = 'Secondary' THEN 2
+                WHEN p.is_creator_email = TRUE THEN 3
+                ELSE 4
+            END ASC,
+            p.id DESC
         LIMIT ? OFFSET ?
     """
     data_params = list(params) + [limit, offset]

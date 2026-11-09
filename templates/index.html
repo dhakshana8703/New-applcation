@@ -1678,7 +1678,6 @@
         btn.innerHTML = `🚀 Run Batch (Next ${batchSize} Events)`;
         statusSpan.innerText = `Done! Processed ${data.events_processed} events (Credits spent: ${data.total_credits_spent})`;
         alert(`Apollo Batch Complete!\n\nEvents Processed: ${data.events_processed}\nTotal Credits Spent: ${data.total_credits_spent}\n\nCheck People table for updated P1/P2 candidates.`);
-        fetchPeople(currentPeopleOffset);
       } catch (err) {
         btn.disabled = false;
         btn.innerHTML = `🚀 Run Batch (${batchSize} Events)`;

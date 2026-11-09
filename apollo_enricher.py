@@ -19,6 +19,7 @@ Target Personas:
                           Exhibition Manager
 
 Safety & Senior Engineering Constraints:
+  - Header auth: Uses X-Api-Key header as strictly required by Apollo.
   - 0-credit search executed before any paid profile match.
   - Persistent real-time audit files: apollo_credit_usage.json & apollo_credit_usage.csv.
   - Strict deduplication: never spend credits on already enriched contacts.
@@ -102,6 +103,9 @@ class ApolloEnricher:
             "Content-Type": "application/json",
             "Cache-Control": "no-cache"
         }
+        if self.api_key:
+            self.headers["X-Api-Key"] = self.api_key
+
         self.org_cache: Dict[str, Dict[str, Any]] = {}
         self.credits_spent = 0
 
@@ -117,7 +121,6 @@ class ApolloEnricher:
             return None
         url = f"{APOLLO_API_BASE}/people/bulk_match"
         payload = {
-            "api_key": self.api_key,
             "details": [{"email": email}]
         }
         try:
@@ -126,14 +129,15 @@ class ApolloEnricher:
                 data = r.json()
                 matches = data.get("matches", [])
                 if matches and matches[0]:
-                    self.credits_spent += 1
+                    credits_used = data.get("credits_consumed", 1)
+                    self.credits_spent += credits_used
                     credit_tracker.record_usage(
                         event_id=event_id,
                         event_name=event_name,
                         action="match_creator",
                         endpoint="/people/bulk_match",
                         target=email,
-                        credits=1
+                        credits=credits_used
                     )
                     return matches[0]
         except Exception as e:
@@ -153,7 +157,7 @@ class ApolloEnricher:
             return None
 
         url = f"{APOLLO_API_BASE}/organizations/enrich"
-        params = {"api_key": self.api_key, "domain": clean_dom}
+        params = {"domain": clean_dom}
         try:
             r = requests.get(url, params=params, headers=self.headers, timeout=12)
             if r.status_code == 200:
@@ -183,11 +187,9 @@ class ApolloEnricher:
             return []
 
         url = f"{APOLLO_API_BASE}/mixed_people/api_search"
-        all_titles = P1_TITLES + P2_TITLES
         payload = {
-            "api_key": self.api_key,
             "q_organization_domains": domain,
-            "person_titles": all_titles,
+            "person_titles": P1_TITLES + P2_TITLES,
             "page": 1,
             "per_page": 10
         }
@@ -221,7 +223,6 @@ class ApolloEnricher:
 
         url = f"{APOLLO_API_BASE}/people/match"
         payload = {
-            "api_key": self.api_key,
             "id": person_id
         }
         try:
@@ -394,7 +395,7 @@ class ApolloEnricher:
 
         return {
             "events_processed": events_processed,
-            "batch_credits_spent": self.credits_spent,
+            "total_credits_spent": self.credits_spent,
             "cumulative_credits_spent": summary.get("total_credits_spent", 0),
             "results": results
         }
