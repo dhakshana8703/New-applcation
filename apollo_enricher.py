@@ -1,5 +1,5 @@
 """
-Apollo Lead Enrichment Engine with Persistent Cache & Checkpoint Recovery.
+Apollo Lead Enrichment Engine with Persistent Cache, Checkpoint Recovery & Domain Guards.
 Strictly implements the Candidate Selection Logic & APIs specified in the Nunify Outbound architecture:
 
 APIs Required:
@@ -20,6 +20,7 @@ Target Personas:
 
 Safety & Senior Engineering Constraints:
   - Header auth: Uses X-Api-Key header as strictly required by Apollo.
+  - Public Domain Guard: Blocks lookup of gmail, yahoo, hotmail, etc. with smart custom URL fallback.
   - Persistent SQLite Cache: Caches every organization & contact match locally.
   - Checkpoint Engine: Tracks enriched event IDs; subsequent runs resume from next unenriched event.
   - 0-credit search executed before any paid profile match.
@@ -34,6 +35,7 @@ import os
 import re
 import time
 import requests
+from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional, Tuple
 
 import cvent_db
@@ -42,6 +44,51 @@ from credit_tracker import credit_tracker
 import apollo_cache
 
 APOLLO_API_BASE = "https://api.apollo.io/v1"
+
+# ==============================================================================
+# PUBLIC WEBMAIL PROVIDERS BLOCKLIST (IMPROVEMENT 2)
+# ==============================================================================
+
+PUBLIC_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+    "icloud.com", "aol.com", "mail.com", "proton.me", "protonmail.com",
+    "zoho.com", "live.com", "msn.com", "yandex.com", "googlemail.com",
+    "comcast.net", "sbcglobal.net", "att.net", "verizon.net"
+}
+
+
+def extract_clean_company_domain(email: str, company_domain: str, event_url: str) -> str:
+    """
+    Extracts a clean, verified corporate domain while strictly filtering out
+    public webmail providers (gmail, yahoo, etc.) with smart custom event URL fallback.
+    """
+    dom = (company_domain or "").lower().strip()
+
+    # If existing company_domain is a public email provider, discard it
+    if dom in PUBLIC_EMAIL_DOMAINS:
+        dom = ""
+
+    # If no valid domain yet, try email domain
+    if not dom and "@" in email:
+        email_dom = email.split("@")[-1].lower().strip()
+        if email_dom not in PUBLIC_EMAIL_DOMAINS:
+            dom = email_dom
+
+    # Smart Fallback: if domain is STILL empty (e.g. planner used gmail.com),
+    # check the event URL custom domain (e.g. events.austinmarathon.com -> austinmarathon.com)
+    if not dom and event_url:
+        try:
+            parsed = urlparse(event_url)
+            host = parsed.netloc.lower()
+            if host and not host.endswith("cvent.com") and host != "cvent.com":
+                parts = host.split(".")
+                if len(parts) >= 2:
+                    dom = ".".join(parts[-2:])
+        except Exception:
+            pass
+
+    return dom
+
 
 # ==============================================================================
 # TARGET PERSONAS AND TITLES (FROM MANAGER DOCUMENT)
@@ -97,8 +144,8 @@ def classify_title(title: str) -> str:
 
 class ApolloEnricher:
     """
-    Production-grade Apollo Client with persistent caching, checkpoint recovery,
-    strict budget controls and audit logging.
+    Production-grade Apollo Client with domain guards, persistent caching,
+    checkpoint recovery, strict budget controls and audit logging.
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -121,6 +168,9 @@ class ApolloEnricher:
     def match_creator(self, email: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
         """Identify creator's name, title, company and LinkedIn with persistent cache."""
         clean_email = email.lower().strip()
+        if not clean_email or "@" not in clean_email:
+            return None
+
         # 1. Check local persistent SQLite cache first
         cached = apollo_cache.get_cached_person(clean_email)
         if cached:
@@ -160,8 +210,11 @@ class ApolloEnricher:
     # API 2: Organization Enrich (1 credit per company, cached in SQLite)
     # --------------------------------------------------------------------------
     def enrich_organization(self, domain: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
-        """Identify company ID and details by domain with persistent cache."""
-        clean_dom = domain.lower().strip()
+        """Identify company ID and details by domain with public provider guard & cache."""
+        clean_dom = (domain or "").lower().strip()
+        if not clean_dom or clean_dom in PUBLIC_EMAIL_DOMAINS:
+            return None
+
         # 1. Check persistent SQLite cache first
         cached_org = apollo_cache.get_cached_org(clean_dom)
         if cached_org:
@@ -198,13 +251,17 @@ class ApolloEnricher:
     # API 3: Search Candidates by Persona Titles (0 credits)
     # --------------------------------------------------------------------------
     def search_persona_candidates(self, org_id: str, domain: str, event_id: Any = None, event_name: str = "") -> List[Dict[str, Any]]:
-        """Find P1 and P2 candidates at the organization using free search."""
+        """Find P1 and P2 candidates at the organization with public provider guard."""
+        clean_dom = (domain or "").lower().strip()
+        if not clean_dom or clean_dom in PUBLIC_EMAIL_DOMAINS:
+            return []
+
         if not self.is_configured():
             return []
 
         url = f"{APOLLO_API_BASE}/mixed_people/api_search"
         payload = {
-            "q_organization_domains": domain,
+            "q_organization_domains": clean_dom,
             "person_titles": P1_TITLES + P2_TITLES,
             "page": 1,
             "per_page": 10
@@ -221,7 +278,7 @@ class ApolloEnricher:
                     event_name=event_name,
                     action="search_persona_candidates",
                     endpoint="/mixed_people/api_search",
-                    target=domain,
+                    target=clean_dom,
                     credits=0
                 )
                 return people
@@ -272,7 +329,7 @@ class ApolloEnricher:
         return None
 
     # --------------------------------------------------------------------------
-    # BATCH PROCESSOR WITH CHECKPOINT RESUMPTION
+    # BATCH PROCESSOR WITH CHECKPOINT RESUMPTION & DOMAIN GUARDS
     # --------------------------------------------------------------------------
     def enrich_event_batch(self, batch_size: int = 5, credit_cap: int = 20) -> Dict[str, Any]:
         """
@@ -323,15 +380,15 @@ class ApolloEnricher:
             eurl = ev["event_url"] if hasattr(ev, "keys") else ev[2]
             c_email = (ev["creator_email"] if hasattr(ev, "keys") else ev[3]) or ""
             c_org = (ev["organizer_company"] if hasattr(ev, "keys") else ev[4]) or ""
-            domain = (ev["domain"] if hasattr(ev, "keys") else ev[5]) or ""
+            comp_domain = (ev["domain"] if hasattr(ev, "keys") else ev[5]) or ""
 
-            if not domain and "@" in c_email:
-                domain = c_email.split("@")[-1].strip()
+            # Apply Domain Guard & Smart Fallback (Improvement 2)
+            domain = extract_clean_company_domain(c_email, comp_domain, eurl)
 
             event_summary = {
                 "event_id": eid,
                 "event_name": ename,
-                "domain": domain,
+                "domain": domain or "(Personal/No Domain)",
                 "status": "processed",
                 "p1_selected": None,
                 "p2_selected": None,
@@ -355,7 +412,7 @@ class ApolloEnricher:
                 continue
 
             # Live Apollo Flow:
-            # Step 1: Identify Creator
+            # Step 1: Identify Creator (always safe, uses the exact email)
             creator_profile = None
             if c_email:
                 creator_profile = self.match_creator(c_email, event_id=eid, event_name=ename)
@@ -363,7 +420,7 @@ class ApolloEnricher:
             creator_title = creator_profile.get("title", "") if creator_profile else ""
             creator_persona = classify_title(creator_title)
 
-            # Step 2: Identify Organization
+            # Step 2: Identify Organization (Skipped if no corporate domain exists)
             org_id = ""
             if domain:
                 org_info = self.enrich_organization(domain, event_id=eid, event_name=ename)
@@ -440,7 +497,7 @@ class ApolloEnricher:
             # Record persistent checkpoint to SQLite
             apollo_cache.record_event_checkpoint(
                 event_id=eid,
-                domain=domain,
+                domain=domain or "no_domain",
                 p1_name=p1_name,
                 p2_name=p2_name,
                 credits_spent=credits_used_this_event
