@@ -305,6 +305,32 @@ def api_test_url():
         return jsonify({"status": "error", "message": "Failed to scrape or extract valid metadata from the given URL."}), 422
 
 
+# ==============================================================================
+# APOLLO ENRICHMENT API
+# ==============================================================================
+
+@app.route("/api/apollo/status", methods=["GET"])
+def api_apollo_status():
+    from apollo_enricher import ApolloEnricher
+    enricher = ApolloEnricher()
+    return jsonify({
+        "configured": enricher.is_configured(),
+        "has_api_key": bool(os.environ.get("APOLLO_API_KEY"))
+    })
+
+
+@app.route("/api/apollo/enrich-batch", methods=["POST"])
+def api_apollo_enrich_batch():
+    from apollo_enricher import ApolloEnricher
+    payload = request.get_json() or {}
+    batch_size = int(payload.get("batch_size", 5))
+    credit_cap = int(payload.get("credit_cap", 20))
+
+    enricher = ApolloEnricher()
+    res = enricher.enrich_event_batch(batch_size=batch_size, credit_cap=credit_cap)
+    return jsonify(res)
+
+
 @app.errorhandler(400)
 def bad_request(e):
     return jsonify({"error": "Bad request", "message": str(e)}), 400

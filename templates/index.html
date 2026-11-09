@@ -719,6 +719,24 @@
         <button class="btn" style="padding:4px 10px; font-size:11px;" onclick="clearPeopleEventFilter()">Clear Filter ✕</button>
       </div>
 
+            <!-- Apollo Enrichment Controls -->
+      <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">⚡</span>
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;">Apollo Lead Enrichment Engine</div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              Enriches Decision-Makers (P1) &amp; Operational Buyers (P2) with 0-credit search guards. Safe batch testing.
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span id="apolloBatchStatus" style="font-size: 12px; color: var(--text-muted);">Ready (Safety cap: 20 credits)</span>
+          <button class="btn btn-primary" id="btnRunApolloBatch" onclick="runApolloBatch(5)" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600;">
+            🚀 Run Batch (First 5 Events)
+          </button>
+        </div>
+      </div>
       <div class="toolbar">
         <div class="toolbar-left">
           <input type="text" id="peopleSearch" class="search-input" placeholder="Search organizer, contact, email, phone..." oninput="debouncePeopleSearch()">
@@ -744,16 +762,16 @@
             <thead>
               <tr>
                 <th width="45">ID</th>
-                <th>Organizer Name</th>
-                <th>Contact Name</th>
-                <th width="90">Designation</th>
-                <th width="125">Is Creator Email?</th>
-                <th width="105">Contact Type</th>
-                <th width="120">Phone</th>
-                <th width="95">LinkedIn URL</th>
+                <th>Name</th>
+                <th>Designation</th>
+                <th>Company</th>
                 <th>Email</th>
-                <th width="105">Source URL</th>
-                <th width="85">Scraper Source</th>
+                <th width="85">LinkedIn</th>
+                <th width="85">Persona</th>
+                <th width="95">Cvent Creator</th>
+                <th width="110">Outreach Priority</th>
+                <th>Related Event(s)</th>
+                <th width="85">Source</th>
               </tr>
             </thead>
             <tbody id="peopleTableBody">
@@ -1314,33 +1332,48 @@
           ? `<span class="badge badge-complete" style="font-weight:700;">YES</span>`
           : `<span class="badge badge-incomplete">NO</span>`;
 
-        const typeBadge = p.contact_type === '3rd-Party Agency'
-          ? `<span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); font-size:11px;">Agency</span>`
-          : `<span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4); font-size:11px;">In-House</span>`;
+        let personaBadge = `<span style="color:var(--text-dim);">-</span>`;
+        if (p.persona === 'P1') {
+          personaBadge = `<span class="badge" style="background:rgba(168,85,247,0.2); color:#c084fc; border:1px solid rgba(168,85,247,0.5); font-weight:700;">P1</span>`;
+        } else if (p.persona === 'P2') {
+          personaBadge = `<span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.5); font-weight:700;">P2</span>`;
+        } else if (p.persona && p.persona !== '-') {
+          personaBadge = `<span class="badge badge-neutral">${escapeHtml(p.persona)}</span>`;
+        }
+
+        let priorityBadge = `<span style="color:var(--text-dim);">-</span>`;
+        if (p.outreach_priority === 'Primary') {
+          priorityBadge = `<span class="badge" style="background:rgba(234,179,8,0.2); color:#facc15; border:1px solid rgba(234,179,8,0.5); font-weight:700;">Primary</span>`;
+        } else if (p.outreach_priority === 'Secondary') {
+          priorityBadge = `<span class="badge" style="background:rgba(14,165,233,0.2); color:#38bdf8; border:1px solid rgba(14,165,233,0.5); font-weight:700;">Secondary</span>`;
+        } else if (p.outreach_priority && p.outreach_priority !== '-') {
+          priorityBadge = `<span class="badge badge-neutral">${escapeHtml(p.outreach_priority)}</span>`;
+        }
 
         const emailChip = p.email
           ? `<span class="email-chip" title="Click to copy: ${escapeHtml(p.email)}" onclick="navigator.clipboard.writeText('${escapeHtml(p.email)}'); alert('Copied email!');">${escapeHtml(p.email)}</span>`
           : `<span style="color:var(--text-dim);">-</span>`;
 
-        const sourceLink = p.source_url
-          ? `<a href="${p.source_url}" target="_blank" class="link-primary" style="font-size:12px; font-weight:600;">Open Event ↗</a>`
-          : '-';
+        const linkedinDisplay = (p.linkedin_url && p.linkedin_url !== '-')
+          ? `<a href="${p.linkedin_url}" target="_blank" style="color:#0ea5e9; font-weight:600;">LinkedIn ↗</a>`
+          : `<span style="color:var(--text-dim);">-</span>`;
 
-        const phoneDisplay = (p.phone && p.phone !== '-') ? `<span style="font-family:'JetBrains Mono', monospace; font-size:12px;">${escapeHtml(p.phone)}</span>` : `<span style="color:var(--text-dim);">-</span>`;
-        const linkedinDisplay = (p.linkedin_url && p.linkedin_url !== '-') ? `<a href="${p.linkedin_url}" target="_blank" style="color:#0ea5e9;">LinkedIn ↗</a>` : `<span style="color:var(--text-dim);">-</span>`;
+        const relatedEvent = p.source_url
+          ? `<a href="${p.source_url}" target="_blank" class="link-primary" style="font-size:12px; font-weight:500;">${escapeHtml(p.event_name || 'View Event')} ↗</a>`
+          : (p.event_name ? escapeHtml(p.event_name) : '-');
 
         html += `
           <tr>
             <td><strong>#${p.id}</strong></td>
-            <td><strong>${escapeHtml(p.organizer_name || '-')}</strong></td>
-            <td>${escapeHtml(p.contact_name || '-')}</td>
-            <td style="color:var(--text-dim);">${escapeHtml(p.designation || '-')}</td>
-            <td>${isCreatorBadge}</td>
-            <td>${typeBadge}</td>
-            <td>${phoneDisplay}</td>
-            <td>${linkedinDisplay}</td>
+            <td><strong>${escapeHtml(p.contact_name || '-')}</strong></td>
+            <td style="color:${p.designation && p.designation !== '-' ? 'var(--text-main)' : 'var(--text-dim)'};">${escapeHtml(p.designation || '-')}</td>
+            <td>${escapeHtml(p.organizer_name || '-')}</td>
             <td>${emailChip}</td>
-            <td>${sourceLink}</td>
+            <td>${linkedinDisplay}</td>
+            <td>${personaBadge}</td>
+            <td>${isCreatorBadge}</td>
+            <td>${priorityBadge}</td>
+            <td>${relatedEvent}</td>
             <td>
               <span class="badge" style="background:rgba(79, 70, 229, 0.2); color:#a5b4fc; border:1px solid rgba(79, 70, 229, 0.4); font-weight:700;">
                 ${escapeHtml(p.scraper_source || 'Cvent')}
@@ -1574,6 +1607,36 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    async function runApolloBatch(batchSize = 5) {
+      const btn = document.getElementById("btnRunApolloBatch");
+      const statusSpan = document.getElementById("apolloBatchStatus");
+      if (!confirm(`Run Apollo Lead Enrichment for the next ${batchSize} events?\n\n• Uses 0-credit candidate search\n• Max safety cap: 20 credits\n• Skips already enriched contacts\n• Default values initialized to '-'`)) {
+        return;
+      }
+      btn.disabled = true;
+      btn.innerHTML = `⏳ Running Batch (${batchSize} Events)...`;
+      statusSpan.innerText = "Executing Apollo algorithm...";
+
+      try {
+        const res = await fetch("/api/apollo/enrich-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ batch_size: batchSize, credit_cap: 20 })
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = `🚀 Run Batch (Next ${batchSize} Events)`;
+        statusSpan.innerText = `Done! Processed ${data.events_processed} events (Credits spent: ${data.total_credits_spent})`;
+        alert(`Apollo Batch Complete!\n\nEvents Processed: ${data.events_processed}\nTotal Credits Spent: ${data.total_credits_spent}\n\nCheck People table for updated P1/P2 candidates.`);
+        fetchPeople(currentPeopleOffset);
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `🚀 Run Batch (${batchSize} Events)`;
+        statusSpan.innerText = `Error: ${err.message}`;
+        alert(`Error executing batch: ${err.message}`);
+      }
     }
   </script>
 </body>

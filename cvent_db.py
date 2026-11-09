@@ -1070,7 +1070,7 @@ def get_all_cvent_people(limit=50, offset=0, search="", is_creator_filter="all",
 
 
 def export_cvent_people_csv(is_creator_filter="all", contact_type_filter="all", search="", event_id=None) -> str:
-    """Export people directly matching the 9 manager-requested columns."""
+    """Export people matching the manager's exact 10 columns."""
     res = get_all_cvent_people(
         limit=50000, offset=0, search=search,
         is_creator_filter=is_creator_filter,
@@ -1080,26 +1080,24 @@ def export_cvent_people_csv(is_creator_filter="all", contact_type_filter="all", 
     people = res["people"]
 
     csv_fields = [
-        "Organizer Name", "Contact Name", "Designation",
-        "Is email creator email?", "Phone", "LinkedIn URL",
-        "Email", "Source URL", "Scraper source", "Contact Type", "Event Name"
+        "Name", "Designation", "Company", "Email", "LinkedIn",
+        "Persona", "Cvent Creator", "Outreach Priority", "Related Event(s)", "Source"
     ]
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(csv_fields)
     for p in people:
-        is_creator_str = "YES" if p.get("is_creator_email") else "NO"
+        is_creator_str = "Yes" if p.get("is_creator_email") else "No"
         writer.writerow([
-            p.get("organizer_name", "-"),
             p.get("contact_name", "-"),
             p.get("designation", "-"),
-            is_creator_str,
-            p.get("phone", "-"),
-            p.get("linkedin_url", "-"),
+            p.get("organizer_name", "-"),
             p.get("email", ""),
-            p.get("source_url", ""),
-            p.get("scraper_source", "Cvent"),
-            p.get("contact_type", "In-House"),
-            p.get("event_name", "")
+            p.get("linkedin_url", "-"),
+            p.get("persona", "-"),
+            is_creator_str,
+            p.get("outreach_priority", "-"),
+            p.get("event_name") or p.get("source_url", ""),
+            p.get("scraper_source", "Cvent")
         ])
     return output.getvalue()
