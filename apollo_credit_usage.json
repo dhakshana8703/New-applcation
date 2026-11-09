@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 3,
-  "last_updated": "2026-11-09T13:01:03.013415Z",
+  "total_credits_spent": 15,
+  "last_updated": "2026-11-09T13:09:32.635922Z",
   "breakdown": {
-    "match_creator": 0,
-    "enrich_organization": 1,
+    "match_creator": 3,
+    "enrich_organization": 6,
     "search_candidates": 0,
-    "unlock_work_email": 2,
+    "unlock_work_email": 6,
     "search_persona_candidates": 0
   },
   "history": [
@@ -48,6 +48,186 @@
       "target": "54aba0757468693007c98a01",
       "credits": 1,
       "cumulative_total": 3
+    },
+    {
+      "timestamp": "2026-11-09T13:05:31.716419Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "aarp.org",
+      "credits": 1,
+      "cumulative_total": 4
+    },
+    {
+      "timestamp": "2026-11-09T13:05:32.757160Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 4
+    },
+    {
+      "timestamp": "2026-11-09T13:05:34.326300Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "60a67d80e523e70001fe0268",
+      "credits": 1,
+      "cumulative_total": 5
+    },
+    {
+      "timestamp": "2026-11-09T13:05:35.423844Z",
+      "event_id": 1,
+      "event_name": "AARP WY 2026 Volunteer Summit",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54aba0757468693007c98a01",
+      "credits": 1,
+      "cumulative_total": 6
+    },
+    {
+      "timestamp": "2026-11-09T13:05:37.214900Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "hannah@lpresearch.org",
+      "credits": 1,
+      "cumulative_total": 7
+    },
+    {
+      "timestamp": "2026-11-09T13:05:38.137389Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "lpresearch.org",
+      "credits": 1,
+      "cumulative_total": 8
+    },
+    {
+      "timestamp": "2026-11-09T13:05:39.421150Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "lpresearch.org",
+      "credits": 0,
+      "cumulative_total": 8
+    },
+    {
+      "timestamp": "2026-11-09T13:05:42.052881Z",
+      "event_id": 3,
+      "event_name": "20th Regional Law Conference",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "oecsbar.com",
+      "credits": 0,
+      "cumulative_total": 8
+    },
+    {
+      "timestamp": "2026-11-09T13:05:44.791949Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "lhca.us",
+      "credits": 1,
+      "cumulative_total": 9
+    },
+    {
+      "timestamp": "2026-11-09T13:05:45.774282Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "lhca.us",
+      "credits": 0,
+      "cumulative_total": 9
+    },
+    {
+      "timestamp": "2026-11-09T13:05:47.042045Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "603dd8e8f2ece4000145b52e",
+      "credits": 1,
+      "cumulative_total": 10
+    },
+    {
+      "timestamp": "2026-11-09T13:05:48.986641Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "justine.kalmar@msupply.com",
+      "credits": 1,
+      "cumulative_total": 11
+    },
+    {
+      "timestamp": "2026-11-09T13:05:50.114312Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "msupply.com",
+      "credits": 1,
+      "cumulative_total": 12
+    },
+    {
+      "timestamp": "2026-11-09T13:05:51.283417Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "msupply.com",
+      "credits": 0,
+      "cumulative_total": 12
+    },
+    {
+      "timestamp": "2026-11-09T13:05:52.693190Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f646b2981ccc000133a0a0",
+      "credits": 1,
+      "cumulative_total": 13
+    },
+    {
+      "timestamp": "2026-11-09T13:09:29.452031Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "hannah@lpresearch.org",
+      "credits": 1,
+      "cumulative_total": 14
+    },
+    {
+      "timestamp": "2026-11-09T13:09:31.116414Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "lpresearch.org",
+      "credits": 1,
+      "cumulative_total": 15
+    },
+    {
+      "timestamp": "2026-11-09T13:09:32.635922Z",
+      "event_id": 2,
+      "event_name": "2026 LPRC Aerial Overwatch Drone Summit",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "lpresearch.org",
+      "credits": 0,
+      "cumulative_total": 15
     }
   ]
 }

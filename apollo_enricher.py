@@ -1,5 +1,5 @@
 """
-Apollo Lead Enrichment Engine.
+Apollo Lead Enrichment Engine with Persistent Cache & Checkpoint Recovery.
 Strictly implements the Candidate Selection Logic & APIs specified in the Nunify Outbound architecture:
 
 APIs Required:
@@ -20,6 +20,8 @@ Target Personas:
 
 Safety & Senior Engineering Constraints:
   - Header auth: Uses X-Api-Key header as strictly required by Apollo.
+  - Persistent SQLite Cache: Caches every organization & contact match locally.
+  - Checkpoint Engine: Tracks enriched event IDs; subsequent runs resume from next unenriched event.
   - 0-credit search executed before any paid profile match.
   - Persistent real-time audit files: apollo_credit_usage.json & apollo_credit_usage.csv.
   - Strict deduplication: never spend credits on already enriched contacts.
@@ -37,6 +39,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import cvent_db
 from db_compat import get_db_connection
 from credit_tracker import credit_tracker
+import apollo_cache
 
 APOLLO_API_BASE = "https://api.apollo.io/v1"
 
@@ -94,7 +97,8 @@ def classify_title(title: str) -> str:
 
 class ApolloEnricher:
     """
-    Production-grade Apollo Client with strict budget controls and persistent audit logging.
+    Production-grade Apollo Client with persistent caching, checkpoint recovery,
+    strict budget controls and audit logging.
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -106,29 +110,35 @@ class ApolloEnricher:
         if self.api_key:
             self.headers["X-Api-Key"] = self.api_key
 
-        self.org_cache: Dict[str, Dict[str, Any]] = {}
         self.credits_spent = 0
 
     def is_configured(self) -> bool:
         return bool(self.api_key and not self.api_key.startswith("mock"))
 
     # --------------------------------------------------------------------------
-    # API 1: Bulk Match Creator (1 credit per match)
+    # API 1: Bulk Match Creator (1 credit per match, cached in SQLite)
     # --------------------------------------------------------------------------
     def match_creator(self, email: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
-        """Identify creator's name, title, company and LinkedIn."""
+        """Identify creator's name, title, company and LinkedIn with persistent cache."""
+        clean_email = email.lower().strip()
+        # 1. Check local persistent SQLite cache first
+        cached = apollo_cache.get_cached_person(clean_email)
+        if cached:
+            print(f"[Apollo Cache] HIT creator: {clean_email} (0 credits)")
+            return cached
+
         if not self.is_configured():
             return None
+
         url = f"{APOLLO_API_BASE}/people/bulk_match"
-        payload = {
-            "details": [{"email": email}]
-        }
+        payload = {"details": [{"email": clean_email}]}
         try:
             r = requests.post(url, json=payload, headers=self.headers, timeout=12)
             if r.status_code == 200:
                 data = r.json()
                 matches = data.get("matches", [])
                 if matches and matches[0]:
+                    match_record = matches[0]
                     credits_used = data.get("credits_consumed", 1)
                     self.credits_spent += credits_used
                     credit_tracker.record_usage(
@@ -136,22 +146,27 @@ class ApolloEnricher:
                         event_name=event_name,
                         action="match_creator",
                         endpoint="/people/bulk_match",
-                        target=email,
+                        target=clean_email,
                         credits=credits_used
                     )
-                    return matches[0]
+                    # Persist to SQLite cache permanently
+                    apollo_cache.set_cached_person(clean_email, match_record)
+                    return match_record
         except Exception as e:
-            print(f"[Apollo] match_creator failed for {email}: {e}")
+            print(f"[Apollo] match_creator failed for {clean_email}: {e}")
         return None
 
     # --------------------------------------------------------------------------
-    # API 2: Organization Enrich (1 credit per company, cached)
+    # API 2: Organization Enrich (1 credit per company, cached in SQLite)
     # --------------------------------------------------------------------------
     def enrich_organization(self, domain: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
-        """Identify company ID and details by domain. Cached locally to avoid credit burn."""
+        """Identify company ID and details by domain with persistent cache."""
         clean_dom = domain.lower().strip()
-        if clean_dom in self.org_cache:
-            return self.org_cache[clean_dom]
+        # 1. Check persistent SQLite cache first
+        cached_org = apollo_cache.get_cached_org(clean_dom)
+        if cached_org:
+            print(f"[Apollo Cache] HIT org domain: {clean_dom} (0 credits)")
+            return cached_org
 
         if not self.is_configured():
             return None
@@ -164,18 +179,19 @@ class ApolloEnricher:
                 data = r.json().get("organization")
                 if data:
                     self.credits_spent += 1
-                    self.org_cache[clean_dom] = data
                     credit_tracker.record_usage(
                         event_id=event_id,
                         event_name=event_name,
                         action="enrich_organization",
                         endpoint="/organizations/enrich",
-                        target=domain,
+                        target=clean_dom,
                         credits=1
                     )
+                    # Persist to SQLite cache permanently
+                    apollo_cache.set_cached_org(clean_dom, data)
                     return data
         except Exception as e:
-            print(f"[Apollo] enrich_organization failed for {domain}: {e}")
+            print(f"[Apollo] enrich_organization failed for {clean_dom}: {e}")
         return None
 
     # --------------------------------------------------------------------------
@@ -214,55 +230,84 @@ class ApolloEnricher:
         return []
 
     # --------------------------------------------------------------------------
-    # API 4: Unlock Verified Work Email (1 credit per match)
+    # API 4: Unlock Verified Work Email (1 credit per match, cached in SQLite)
     # --------------------------------------------------------------------------
     def unlock_work_email(self, person_id: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
-        """Retrieve available work email and details for a selected candidate."""
-        if not self.is_configured() or not person_id:
+        """Retrieve available work email with persistent cache."""
+        if not person_id:
+            return None
+
+        # 1. Check local persistent SQLite cache
+        cached_person = apollo_cache.get_cached_person(person_id)
+        if cached_person and cached_person.get("email"):
+            print(f"[Apollo Cache] HIT person ID: {person_id} (0 credits)")
+            return cached_person
+
+        if not self.is_configured():
             return None
 
         url = f"{APOLLO_API_BASE}/people/match"
-        payload = {
-            "id": person_id
-        }
+        payload = {"id": person_id}
         try:
             r = requests.post(url, json=payload, headers=self.headers, timeout=12)
             if r.status_code == 200:
                 self.credits_spent += 1
                 person = r.json().get("person")
-                credit_tracker.record_usage(
-                    event_id=event_id,
-                    event_name=event_name,
-                    action="unlock_work_email",
-                    endpoint="/people/match",
-                    target=person_id,
-                    credits=1
-                )
-                return person
+                if person:
+                    credit_tracker.record_usage(
+                        event_id=event_id,
+                        event_name=event_name,
+                        action="unlock_work_email",
+                        endpoint="/people/match",
+                        target=person_id,
+                        credits=1
+                    )
+                    # Persist to SQLite cache
+                    apollo_cache.set_cached_person(person_id, person)
+                    if person.get("email"):
+                        apollo_cache.set_cached_person(person.get("email"), person)
+                    return person
         except Exception as e:
             print(f"[Apollo] unlock_work_email failed for {person_id}: {e}")
         return None
 
     # --------------------------------------------------------------------------
-    # BATCH PROCESSOR (CONFIGURABLE BATCH SIZE)
+    # BATCH PROCESSOR WITH CHECKPOINT RESUMPTION
     # --------------------------------------------------------------------------
     def enrich_event_batch(self, batch_size: int = 5, credit_cap: int = 20) -> Dict[str, Any]:
         """
         Runs Apollo enrichment for up to `batch_size` unenriched events.
+        Automatically resumes from the next unenriched event using SQLite checkpoints.
         Enforces credit_cap so it never overspends.
         """
         conn = get_db_connection()
         cur = conn.cursor() if hasattr(conn, 'cursor') else conn
 
-        # Fetch first N events with valid creator_email or domain
-        cur.execute("""
-            SELECT c.id as event_id, c.event_name, c.event_url, c.creator_email, c.organizer_company, comp.domain
-            FROM cvent c
-            LEFT JOIN cvent_companies comp ON c.company_id = comp.id
-            WHERE (c.creator_email != '' OR comp.domain != '')
-            ORDER BY c.id ASC
-            LIMIT %s
-        """, (batch_size,))
+        # Check completed checkpoints to resume seamlessly
+        enriched_ids = apollo_cache.get_enriched_event_ids()
+
+        if enriched_ids:
+            placeholders = ",".join(str(eid) for eid in enriched_ids)
+            sql = f"""
+                SELECT c.id as event_id, c.event_name, c.event_url, c.creator_email, c.organizer_company, comp.domain
+                FROM cvent c
+                LEFT JOIN cvent_companies comp ON c.company_id = comp.id
+                WHERE (c.creator_email != '' OR comp.domain != '')
+                  AND c.id NOT IN ({placeholders})
+                ORDER BY c.id ASC
+                LIMIT %s
+            """
+        else:
+            sql = """
+                SELECT c.id as event_id, c.event_name, c.event_url, c.creator_email, c.organizer_company, comp.domain
+                FROM cvent c
+                LEFT JOIN cvent_companies comp ON c.company_id = comp.id
+                WHERE (c.creator_email != '' OR comp.domain != '')
+                ORDER BY c.id ASC
+                LIMIT %s
+            """
+
+        cur.execute(sql, (batch_size,))
         events = cur.fetchall()
 
         results = []
@@ -304,6 +349,7 @@ class ApolloEnricher:
                     WHERE event_id = %s
                 """, (eid,))
                 event_summary["status"] = "dry_run_unconfigured"
+                apollo_cache.record_event_checkpoint(eid, domain, "-", "-", 0)
                 results.append(event_summary)
                 events_processed += 1
                 continue
@@ -356,13 +402,17 @@ class ApolloEnricher:
                 if unlocked:
                     p2_candidate.update(unlocked)
 
+            p1_name = "-"
+            p2_name = "-"
+
             # Save / Update P1
             if p1_candidate:
                 self._upsert_apollo_person(
                     conn, eid, c_org, p1_candidate, persona="P1",
                     priority="Primary", source_url=eurl, is_creator=(p1_candidate == creator_profile)
                 )
-                event_summary["p1_selected"] = p1_candidate.get("name") or p1_candidate.get("first_name", "P1 Match")
+                p1_name = p1_candidate.get("name") or p1_candidate.get("first_name", "P1 Match")
+                event_summary["p1_selected"] = p1_name
 
             # Save / Update P2
             if p2_candidate:
@@ -370,7 +420,8 @@ class ApolloEnricher:
                     conn, eid, c_org, p2_candidate, persona="P2",
                     priority="Secondary", source_url=eurl, is_creator=(p2_candidate == creator_profile)
                 )
-                event_summary["p2_selected"] = p2_candidate.get("name") or p2_candidate.get("first_name", "P2 Match")
+                p2_name = p2_candidate.get("name") or p2_candidate.get("first_name", "P2 Match")
+                event_summary["p2_selected"] = p2_name
 
             # Scenario 3 & 4: If creator was identified but was neither P1 nor P2, update their profile with real title & mark 'Not Selected'
             if creator_profile and c_email:
@@ -383,7 +434,18 @@ class ApolloEnricher:
                         is_creator=True
                     )
 
-            event_summary["credits_used"] = self.credits_spent - credits_before
+            credits_used_this_event = self.credits_spent - credits_before
+            event_summary["credits_used"] = credits_used_this_event
+
+            # Record persistent checkpoint to SQLite
+            apollo_cache.record_event_checkpoint(
+                event_id=eid,
+                domain=domain,
+                p1_name=p1_name,
+                p2_name=p2_name,
+                credits_spent=credits_used_this_event
+            )
+
             results.append(event_summary)
             events_processed += 1
             time.sleep(0.5)  # Rate limiting safety

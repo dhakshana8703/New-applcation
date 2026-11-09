@@ -3,3 +3,21 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-09T13:01:00.148304Z,1,AARP WY 2026 Volunteer Summit,search_persona_candidates,/mixed_people/api_search,aarp.org,0,1
 2026-11-09T13:01:01.981215Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,60a67d80e523e70001fe0268,1,2
 2026-11-09T13:01:03.013415Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,54aba0757468693007c98a01,1,3
+2026-11-09T13:05:31.716419Z,1,AARP WY 2026 Volunteer Summit,enrich_organization,/organizations/enrich,aarp.org,1,4
+2026-11-09T13:05:32.757160Z,1,AARP WY 2026 Volunteer Summit,search_persona_candidates,/mixed_people/api_search,aarp.org,0,4
+2026-11-09T13:05:34.326300Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,60a67d80e523e70001fe0268,1,5
+2026-11-09T13:05:35.423844Z,1,AARP WY 2026 Volunteer Summit,unlock_work_email,/people/match,54aba0757468693007c98a01,1,6
+2026-11-09T13:05:37.214900Z,2,2026 LPRC Aerial Overwatch Drone Summit,match_creator,/people/bulk_match,hannah@lpresearch.org,1,7
+2026-11-09T13:05:38.137389Z,2,2026 LPRC Aerial Overwatch Drone Summit,enrich_organization,/organizations/enrich,lpresearch.org,1,8
+2026-11-09T13:05:39.421150Z,2,2026 LPRC Aerial Overwatch Drone Summit,search_persona_candidates,/mixed_people/api_search,lpresearch.org,0,8
+2026-11-09T13:05:42.052881Z,3,20th Regional Law Conference,search_persona_candidates,/mixed_people/api_search,oecsbar.com,0,8
+2026-11-09T13:05:44.791949Z,4,LHCA 7th Annual Meeting,enrich_organization,/organizations/enrich,lhca.us,1,9
+2026-11-09T13:05:45.774282Z,4,LHCA 7th Annual Meeting,search_persona_candidates,/mixed_people/api_search,lhca.us,0,9
+2026-11-09T13:05:47.042045Z,4,LHCA 7th Annual Meeting,unlock_work_email,/people/match,603dd8e8f2ece4000145b52e,1,10
+2026-11-09T13:05:48.986641Z,5,BellSimons Contractor Tradeshow & Vendor Expo,match_creator,/people/bulk_match,justine.kalmar@msupply.com,1,11
+2026-11-09T13:05:50.114312Z,5,BellSimons Contractor Tradeshow & Vendor Expo,enrich_organization,/organizations/enrich,msupply.com,1,12
+2026-11-09T13:05:51.283417Z,5,BellSimons Contractor Tradeshow & Vendor Expo,search_persona_candidates,/mixed_people/api_search,msupply.com,0,12
+2026-11-09T13:05:52.693190Z,5,BellSimons Contractor Tradeshow & Vendor Expo,unlock_work_email,/people/match,66f646b2981ccc000133a0a0,1,13
+2026-11-09T13:09:29.452031Z,2,2026 LPRC Aerial Overwatch Drone Summit,match_creator,/people/bulk_match,hannah@lpresearch.org,1,14
+2026-11-09T13:09:31.116414Z,2,2026 LPRC Aerial Overwatch Drone Summit,enrich_organization,/organizations/enrich,lpresearch.org,1,15
+2026-11-09T13:09:32.635922Z,2,2026 LPRC Aerial Overwatch Drone Summit,search_persona_candidates,/mixed_people/api_search,lpresearch.org,0,15
