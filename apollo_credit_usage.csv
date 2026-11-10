@@ -454,3 +454,28 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T09:11:18.851176Z,398,Ogletree,search_persona_candidates,/mixed_people/api_search,ogletree.com,0,35
 2026-11-10T12:08:54.291826Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,35
 2026-11-10T12:10:11.357757Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,35
+2026-11-10T12:25:35.238483Z,151,Assaabloy,search_persona_candidates,/mixed_people/api_search,assaabloy.com,0,35
+2026-11-10T12:35:56.571137Z,,,unlock_work_email,/people/match,60f148433757a900013b129b,1,36
+2026-11-10T12:36:11.000745Z,,,unlock_work_email,/people/match,60a29f6b1e36ac000177a79d,1,37
+2026-11-10T12:36:55.562331Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,37
+2026-11-10T12:37:41.326324Z,,,unlock_work_email,/people/match,5d64fd3ba3ae6171b085cdad,1,38
+2026-11-10T12:37:52.390275Z,,,unlock_work_email,/people/match,62d3911a21a58b0001148ceb,1,39
+2026-11-10T12:39:55.631099Z,,,unlock_work_email,/people/match,54a8022974686975f82a4e5c,1,40
+2026-11-10T12:51:47.943460Z,,,unlock_work_email,/people/match,606585a002202a0001fe9954,1,41
+2026-11-10T12:52:00.644891Z,,,unlock_work_email,/people/match,54ec042d746869444c241b3e,1,42
+2026-11-10T12:52:28.566445Z,,,unlock_work_email,/people/match,6aa5abd833e07d0001967bee,1,43
+2026-11-10T12:52:53.921077Z,,,unlock_work_email,/people/match,66f55602962ce60001a4b5c4,1,44
+2026-11-10T13:02:48.813813Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,44
+2026-11-10T13:03:10.362069Z,,,unlock_work_email,/people/match,6365da803e7ca50001d13a5d,1,45
+2026-11-10T13:03:19.905130Z,,,unlock_work_email,/people/match,54a3a8327468693209864d08,1,46
+2026-11-10T13:09:01.346738Z,,,unlock_work_email,/people/match,5e864580debf560001d5bb50,1,47
+2026-11-10T13:09:16.076120Z,,,unlock_work_email,/people/match,54aa73587468690b752c7d05,1,48
+2026-11-10T13:11:25.131992Z,221,Aashto,search_persona_candidates,/mixed_people/api_search,aashto.org,0,48
+2026-11-10T13:28:12.582748Z,,,unlock_work_email,/people/match,54eba8c17468694311993108,1,49
+2026-11-10T13:28:25.483810Z,,,unlock_work_email,/people/match,54a3e92874686938acf9281d,1,50
+2026-11-10T13:36:53.312121Z,,,unlock_work_email,/people/match,610137dba867c900016f939e,1,51
+2026-11-10T13:37:05.379663Z,,,unlock_work_email,/people/match,66f178a1dd9d780001ef8e20,1,52
+2026-11-10T13:37:12.242108Z,,,unlock_work_email,/people/match,594696a3a6da989916ff6fb6,1,53
+2026-11-10T13:37:56.093705Z,16,American Bar Association (ABA),search_persona_candidates,/mixed_people/api_search,americanbar.org,0,53
+2026-11-10T13:38:03.941835Z,16,American Bar Association (ABA),search_persona_candidates,/mixed_people/api_search,americanbar.org,0,53
+2026-11-10T13:38:23.723342Z,238,National,search_persona_candidates,/mixed_people/api_search,national.alpfa.org,0,53

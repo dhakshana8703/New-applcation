@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 35,
-  "last_updated": "2026-11-10T12:10:11.357757Z",
+  "total_credits_spent": 53,
+  "last_updated": "2026-11-10T13:38:23.723342Z",
   "breakdown": {
     "match_creator": 8,
     "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 15,
+    "unlock_work_email": 33,
     "search_persona_candidates": 0
   },
   "history": [
@@ -4568,6 +4568,256 @@
       "target": "aarp.org",
       "credits": 0,
       "cumulative_total": 35
+    },
+    {
+      "timestamp": "2026-11-10T12:25:35.238483Z",
+      "event_id": 151,
+      "event_name": "Assaabloy",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "assaabloy.com",
+      "credits": 0,
+      "cumulative_total": 35
+    },
+    {
+      "timestamp": "2026-11-10T12:35:56.571137Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "60f148433757a900013b129b",
+      "credits": 1,
+      "cumulative_total": 36
+    },
+    {
+      "timestamp": "2026-11-10T12:36:11.000745Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "60a29f6b1e36ac000177a79d",
+      "credits": 1,
+      "cumulative_total": 37
+    },
+    {
+      "timestamp": "2026-11-10T12:36:55.562331Z",
+      "event_id": 1,
+      "event_name": "AARP",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 37
+    },
+    {
+      "timestamp": "2026-11-10T12:37:41.326324Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "5d64fd3ba3ae6171b085cdad",
+      "credits": 1,
+      "cumulative_total": 38
+    },
+    {
+      "timestamp": "2026-11-10T12:37:52.390275Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "62d3911a21a58b0001148ceb",
+      "credits": 1,
+      "cumulative_total": 39
+    },
+    {
+      "timestamp": "2026-11-10T12:39:55.631099Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54a8022974686975f82a4e5c",
+      "credits": 1,
+      "cumulative_total": 40
+    },
+    {
+      "timestamp": "2026-11-10T12:51:47.943460Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "606585a002202a0001fe9954",
+      "credits": 1,
+      "cumulative_total": 41
+    },
+    {
+      "timestamp": "2026-11-10T12:52:00.644891Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54ec042d746869444c241b3e",
+      "credits": 1,
+      "cumulative_total": 42
+    },
+    {
+      "timestamp": "2026-11-10T12:52:28.566445Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "6aa5abd833e07d0001967bee",
+      "credits": 1,
+      "cumulative_total": 43
+    },
+    {
+      "timestamp": "2026-11-10T12:52:53.921077Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f55602962ce60001a4b5c4",
+      "credits": 1,
+      "cumulative_total": 44
+    },
+    {
+      "timestamp": "2026-11-10T13:02:48.813813Z",
+      "event_id": 1,
+      "event_name": "AARP",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 44
+    },
+    {
+      "timestamp": "2026-11-10T13:03:10.362069Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "6365da803e7ca50001d13a5d",
+      "credits": 1,
+      "cumulative_total": 45
+    },
+    {
+      "timestamp": "2026-11-10T13:03:19.905130Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54a3a8327468693209864d08",
+      "credits": 1,
+      "cumulative_total": 46
+    },
+    {
+      "timestamp": "2026-11-10T13:09:01.346738Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "5e864580debf560001d5bb50",
+      "credits": 1,
+      "cumulative_total": 47
+    },
+    {
+      "timestamp": "2026-11-10T13:09:16.076120Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54aa73587468690b752c7d05",
+      "credits": 1,
+      "cumulative_total": 48
+    },
+    {
+      "timestamp": "2026-11-10T13:11:25.131992Z",
+      "event_id": 221,
+      "event_name": "Aashto",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aashto.org",
+      "credits": 0,
+      "cumulative_total": 48
+    },
+    {
+      "timestamp": "2026-11-10T13:28:12.582748Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54eba8c17468694311993108",
+      "credits": 1,
+      "cumulative_total": 49
+    },
+    {
+      "timestamp": "2026-11-10T13:28:25.483810Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54a3e92874686938acf9281d",
+      "credits": 1,
+      "cumulative_total": 50
+    },
+    {
+      "timestamp": "2026-11-10T13:36:53.312121Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "610137dba867c900016f939e",
+      "credits": 1,
+      "cumulative_total": 51
+    },
+    {
+      "timestamp": "2026-11-10T13:37:05.379663Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f178a1dd9d780001ef8e20",
+      "credits": 1,
+      "cumulative_total": 52
+    },
+    {
+      "timestamp": "2026-11-10T13:37:12.242108Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "594696a3a6da989916ff6fb6",
+      "credits": 1,
+      "cumulative_total": 53
+    },
+    {
+      "timestamp": "2026-11-10T13:37:56.093705Z",
+      "event_id": 16,
+      "event_name": "American Bar Association (ABA)",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "americanbar.org",
+      "credits": 0,
+      "cumulative_total": 53
+    },
+    {
+      "timestamp": "2026-11-10T13:38:03.941835Z",
+      "event_id": 16,
+      "event_name": "American Bar Association (ABA)",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "americanbar.org",
+      "credits": 0,
+      "cumulative_total": 53
+    },
+    {
+      "timestamp": "2026-11-10T13:38:23.723342Z",
+      "event_id": 238,
+      "event_name": "National",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "national.alpfa.org",
+      "credits": 0,
+      "cumulative_total": 53
     }
   ]
 }
