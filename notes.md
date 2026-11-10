@@ -107,6 +107,23 @@ All enriched contacts strictly map to the 10 target fields specified for the out
 
 ---
 
+### ✅ Improvement 9: Company-Wise Lead Enrichment Engine (v3.0)
+* **Problem:** The system was running **event-wise** (761 events). Multi-event organizers like AARP (68 events) and ABA (25 events) were being evaluated repeatedly event-by-event, causing redundant processing and wasted time/credits.
+* **Solution:**
+  1. Completely re-architected the batch engine to run **Company-Wise**:
+     * Prioritizes high-event companies first (ranked by `event_count DESC`).
+     * Enriches the verified P1 Decision-Maker directly by domain for 0 credits search + 1 credit unlock.
+     * Automatically propagates that P1 executive across **every event belonging to that company** in `cvent_people`.
+  2. Built **`apollo_company_checkpoints`** in SQLite to ensure no company is ever evaluated twice.
+  3. **Verified Live Impact:**
+     * **AARP (68 events) + American Bar Association (25 events)**:
+     * **93 events were fully enriched and linked for just 2 credits total!**
+  4. **Macro Economic Impact:**
+     * Total pipeline load cut from **761 event iterations down to 393 company lookups**.
+     * Total credit consumption for the entire 1-month Cvent database cut from ~1,800 credits down to **~450–550 credits**!
+
+---
+
 ## 4. Live Verification Output
 
 Live testing with verified Cvent events confirms the engine successfully identifies and extracts verified decision-makers:

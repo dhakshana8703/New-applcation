@@ -67,6 +67,22 @@ def init_apollo_cache_tables():
                 enriched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # 4. Company enrichment checkpoint tracker (for Company-Wise Lead Enrichment)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS apollo_company_checkpoints (
+                company_id INTEGER,
+                domain TEXT PRIMARY KEY,
+                company_name TEXT DEFAULT '',
+                status TEXT DEFAULT 'completed',
+                p1_name TEXT DEFAULT '-',
+                p2_name TEXT DEFAULT '-',
+                events_linked INTEGER DEFAULT 0,
+                credits_spent INTEGER DEFAULT 0,
+                enriched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_apollo_comp_domain ON apollo_company_checkpoints(domain)")
     conn.close()
 
 
@@ -195,6 +211,45 @@ def record_event_checkpoint(event_id: int, domain: str, p1_name: str = "-", p2_n
                 credits_spent = excluded.credits_spent,
                 enriched_at = CURRENT_TIMESTAMP
         """, (event_id, domain, p1_name, p2_name, credits_spent))
+    conn.close()
+
+
+def get_enriched_company_domains() -> List[str]:
+    """Return list of company domains that have already been enriched."""
+    conn = _get_sqlite_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT domain FROM apollo_company_checkpoints")
+    rows = cur.fetchall()
+    conn.close()
+    return [r[0] for r in rows if r[0]]
+
+
+def record_company_checkpoint(
+    company_id: int,
+    domain: str,
+    company_name: str = "",
+    p1_name: str = "-",
+    p2_name: str = "-",
+    events_linked: int = 0,
+    credits_spent: int = 0
+):
+    """Mark a company domain as enriched in persistent checkpoints."""
+    conn = _get_sqlite_conn()
+    with conn:
+        conn.execute("""
+            INSERT INTO apollo_company_checkpoints (
+                company_id, domain, company_name, status, p1_name, p2_name, events_linked, credits_spent, enriched_at
+            )
+            VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(domain) DO UPDATE SET
+                company_id = excluded.company_id,
+                company_name = excluded.company_name,
+                p1_name = excluded.p1_name,
+                p2_name = excluded.p2_name,
+                events_linked = excluded.events_linked,
+                credits_spent = excluded.credits_spent,
+                enriched_at = CURRENT_TIMESTAMP
+        """, (company_id, domain.lower().strip(), company_name, p1_name, p2_name, events_linked, credits_spent))
     conn.close()
 
 

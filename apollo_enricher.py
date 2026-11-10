@@ -330,6 +330,211 @@ class ApolloEnricher:
         return None
 
     # --------------------------------------------------------------------------
+    # COMPANY-WISE LEAD ENRICHMENT ENGINE (IMPROVEMENT 3)
+    # --------------------------------------------------------------------------
+    def enrich_company_batch(
+        self,
+        batch_size: int = 5,
+        credit_cap: int = 20,
+        progress_callback = None,
+        stop_check = None
+    ) -> Dict[str, Any]:
+        """
+        Runs Apollo enrichment COMPANY-WISE rather than event-by-event.
+        Enriches each unique corporate domain ONCE and links the verified P1/P2
+        decision-makers across ALL events belonging to that company.
+        Completely eliminates duplicate credit burn across multi-event organizers.
+        """
+        conn = None
+        for _ in range(5):
+            try:
+                conn = get_db_connection()
+                break
+            except Exception:
+                time.sleep(1)
+
+        if not conn:
+            return {"error": "Could not connect to database", "companies_processed": 0, "total_credits_spent": 0}
+
+        cur = conn.cursor() if hasattr(conn, 'cursor') else conn
+
+        # 1. Retrieve all already-enriched company domains from SQLite checkpoints
+        enriched_domains = set(apollo_cache.get_enriched_company_domains())
+        blocked_domains = PUBLIC_EMAIL_DOMAINS | enriched_domains
+
+        # 2. Query unique companies from Neon DB with their associated event counts
+        # Prioritize companies with the highest number of events for maximum outbound impact!
+        cur.execute("""
+            SELECT 
+                comp.id as company_id,
+                comp.name as company_name,
+                comp.domain,
+                COUNT(c.id) as event_count
+            FROM cvent_companies comp
+            JOIN cvent c ON c.company_id = comp.id
+            WHERE comp.domain != '' AND comp.domain IS NOT NULL
+            GROUP BY comp.id, comp.name, comp.domain
+            ORDER BY event_count DESC, comp.id ASC
+        """)
+        all_companies = cur.fetchall()
+
+        companies_to_process = []
+        for c in all_companies:
+            dom = (c["domain"] if hasattr(c, "keys") else c[2] or "").lower().strip()
+            if dom and dom not in blocked_domains:
+                companies_to_process.append(c)
+                if len(companies_to_process) >= batch_size:
+                    break
+
+        total_companies = len(companies_to_process)
+        results = []
+        companies_processed = 0
+        total_events_updated = 0
+
+        for c in companies_to_process:
+            if stop_check and stop_check():
+                print("[Apollo] Stop requested during company batch. Stopping.")
+                break
+            if self.credits_spent >= credit_cap:
+                print(f"[Apollo] Credit cap ({credit_cap}) reached. Stopping.")
+                break
+
+            comp_id = c["company_id"] if hasattr(c, "keys") else c[0]
+            comp_name = c["company_name"] if hasattr(c, "keys") else c[1]
+            domain = (c["domain"] if hasattr(c, "keys") else c[2] or "").lower().strip()
+            event_count = c["event_count"] if hasattr(c, "keys") else c[3]
+
+            if progress_callback:
+                progress_callback(
+                    processed=companies_processed,
+                    total=total_companies,
+                    current_event=f"{comp_name} ({event_count} events)",
+                    current_domain=domain,
+                    credits_batch=self.credits_spent,
+                    events_linked_so_far=total_events_updated
+                )
+
+            credits_before = self.credits_spent
+
+            # Query all linked events for this company
+            cur.execute("""
+                SELECT id, event_name, event_url, organizer_company, creator_email
+                FROM cvent
+                WHERE company_id = %s OR lower(split_part(creator_email, '@', 2)) = %s
+                ORDER BY id ASC
+            """, (comp_id, domain))
+            linked_events = cur.fetchall()
+
+            # 1. Free 0-credit persona candidate search directly by domain (Bypasses /organizations/enrich)
+            candidates = self.search_persona_candidates("", domain, event_id=comp_id, event_name=comp_name) if domain else []
+
+            p1_candidate = None
+            p2_candidate = None
+
+            for cand in candidates:
+                c_title = cand.get("title", "")
+                persona = classify_title(c_title)
+                if persona == "P1" and not p1_candidate:
+                    p1_candidate = cand
+                elif persona == "P2" and not p2_candidate:
+                    p2_candidate = cand
+
+            # 2. Unlock work email for P1 Decision-Maker (1 credit)
+            if p1_candidate and not p1_candidate.get("email"):
+                unlocked = self.unlock_work_email(p1_candidate.get("id"), event_id=comp_id, event_name=comp_name)
+                if unlocked:
+                    p1_candidate.update(unlocked)
+
+            # 3. P1-First Strategy: Only unlock P2 if P1 does NOT exist or has no verified email
+            if not p1_candidate or not p1_candidate.get("email"):
+                if p2_candidate and not p2_candidate.get("email"):
+                    unlocked = self.unlock_work_email(p2_candidate.get("id"), event_id=comp_id, event_name=comp_name)
+                    if unlocked:
+                        p2_candidate.update(unlocked)
+
+            # 4. Propagate P1 and P2 across ALL linked events in cvent_people
+            p1_name = "-"
+            p2_name = "-"
+            events_updated_this_company = 0
+
+            for ev in linked_events:
+                eid = ev["id"] if hasattr(ev, "keys") else ev[0]
+                ename = ev["event_name"] if hasattr(ev, "keys") else ev[1]
+                eurl = ev["event_url"] if hasattr(ev, "keys") else ev[2]
+                org_disp = (ev["organizer_company"] if hasattr(ev, "keys") else ev[3]) or comp_name
+                c_email = (ev["creator_email"] if hasattr(ev, "keys") else ev[4]) or ""
+
+                if p1_candidate and p1_candidate.get("email"):
+                    self._upsert_apollo_person(
+                        conn, eid, org_disp, p1_candidate, persona="P1",
+                        priority="Primary", source_url=eurl, is_creator=(c_email.lower() == p1_candidate.get("email", "").lower())
+                    )
+                    p1_name = p1_candidate.get("name") or p1_candidate.get("first_name", "P1 Match")
+
+                if p2_candidate and p2_candidate.get("email"):
+                    self._upsert_apollo_person(
+                        conn, eid, org_disp, p2_candidate, persona="P2",
+                        priority="Secondary", source_url=eurl, is_creator=(c_email.lower() == p2_candidate.get("email", "").lower())
+                    )
+                    p2_name = p2_candidate.get("name") or p2_candidate.get("first_name", "P2 Match")
+
+                # Record event checkpoint
+                apollo_cache.record_event_checkpoint(eid, domain, p1_name, p2_name, 0)
+                events_updated_this_company += 1
+
+            credits_used_this_company = self.credits_spent - credits_before
+
+            # Atomic commit to Neon DB per company
+            conn.commit()
+
+            # Record persistent company checkpoint in SQLite
+            apollo_cache.record_company_checkpoint(
+                company_id=comp_id,
+                domain=domain,
+                company_name=comp_name,
+                p1_name=p1_name,
+                p2_name=p2_name,
+                events_linked=events_updated_this_company,
+                credits_spent=credits_used_this_company
+            )
+
+            results.append({
+                "company_id": comp_id,
+                "company_name": comp_name,
+                "domain": domain,
+                "events_linked": events_updated_this_company,
+                "p1_selected": p1_name,
+                "p2_selected": p2_name,
+                "credits_used": credits_used_this_company
+            })
+
+            companies_processed += 1
+            total_events_updated += events_updated_this_company
+            time.sleep(0.4)
+
+        conn.close()
+
+        if progress_callback:
+            progress_callback(
+                processed=companies_processed,
+                total=total_companies,
+                current_event="Completed",
+                current_domain="",
+                credits_batch=self.credits_spent,
+                events_linked_so_far=total_events_updated
+            )
+
+        summary = credit_tracker.get_summary()
+
+        return {
+            "companies_processed": companies_processed,
+            "total_events_updated": total_events_updated,
+            "total_credits_spent": self.credits_spent,
+            "cumulative_credits_spent": summary.get("total_credits_spent", 0),
+            "results": results
+        }
+
+    # --------------------------------------------------------------------------
     # BATCH PROCESSOR WITH CHECKPOINT RESUMPTION & DOMAIN GUARDS
     # --------------------------------------------------------------------------
     def enrich_event_batch(
@@ -586,14 +791,14 @@ class ApolloEnricher:
 
 
 # ==============================================================================
-# BACKGROUND QUEUE WORKER (IMPROVEMENT 1)
+# BACKGROUND QUEUE WORKER (IMPROVEMENTS 1 & 3: COMPANY-WISE)
 # ==============================================================================
 
 class ApolloBackgroundWorker:
     """
-    Manages non-blocking asynchronous Apollo lead enrichment in a dedicated daemon thread.
-    Prevents HTTP gateway timeouts on Render and client browsers during large batches (10, 25, 50).
-    Provides real-time thread-safe status polling and graceful cancellation.
+    Manages non-blocking asynchronous Company-Wise Apollo lead enrichment in a dedicated daemon thread.
+    Prevents HTTP gateway timeouts on Render and client browsers during large batches.
+    Deduplicates across multi-event companies and provides real-time thread-safe status polling.
     """
     def __init__(self):
         self._lock = threading.RLock()
@@ -602,6 +807,7 @@ class ApolloBackgroundWorker:
         self.batch_size = 0
         self.processed = 0
         self.total = 0
+        self.events_linked = 0
         self.current_event = ""
         self.current_domain = ""
         self.credits_spent_batch = 0
@@ -619,6 +825,7 @@ class ApolloBackgroundWorker:
                 "batch_size": self.batch_size,
                 "processed": self.processed,
                 "total": self.total,
+                "events_linked": self.events_linked,
                 "current_event": self.current_event,
                 "current_domain": self.current_domain,
                 "credits_spent_batch": self.credits_spent_batch,
@@ -632,7 +839,7 @@ class ApolloBackgroundWorker:
         with self._lock:
             if self.is_running:
                 self.should_stop = True
-                self.status_message = "Stop signal received. Halting gracefully after current event..."
+                self.status_message = "Stop signal received. Halting gracefully after current company..."
                 return True
             return False
 
@@ -641,18 +848,19 @@ class ApolloBackgroundWorker:
             if self.is_running:
                 return False, "An Apollo enrichment batch is already actively running."
 
-            # Calculate safety credit cap (default: batch_size * 4 credits max)
-            cap = credit_cap if (credit_cap is not None and credit_cap > 0) else max(20, batch_size * 4)
+            # Calculate safety credit cap (default: batch_size * 3 credits max)
+            cap = credit_cap if (credit_cap is not None and credit_cap > 0) else max(15, batch_size * 3)
 
             self.is_running = True
             self.should_stop = False
             self.batch_size = batch_size
             self.processed = 0
             self.total = batch_size
-            self.current_event = "Initializing batch queue..."
+            self.events_linked = 0
+            self.current_event = "Initializing company queue..."
             self.current_domain = ""
             self.credits_spent_batch = 0
-            self.status_message = f"Starting queue worker for {batch_size} events (Safety cap: {cap} credits)..."
+            self.status_message = f"Starting Company-Wise queue worker for {batch_size} companies (Safety cap: {cap} credits)..."
             self.error = None
 
         thread = threading.Thread(
@@ -671,21 +879,23 @@ class ApolloBackgroundWorker:
                 with self._lock:
                     return self.should_stop
 
-            def _progress(processed, total, current_event, current_domain, credits_batch):
+            def _progress(processed, total, current_event, current_domain, credits_batch, events_linked_so_far):
                 with self._lock:
                     self.processed = processed
                     self.total = total
                     self.current_event = current_event
                     self.current_domain = current_domain
                     self.credits_spent_batch = credits_batch
+                    self.events_linked = events_linked_so_far
                     if current_event == "Completed":
-                        self.status_message = f"Enrichment completed for all {processed} events."
+                        self.status_message = f"Completed! Enriched {processed} companies ({events_linked_so_far} events linked)."
                     else:
                         step_num = min(processed + 1, total)
                         dom_display = f" ({current_domain})" if current_domain else ""
-                        self.status_message = f"Enriching event {step_num}/{total}: {current_event[:35]}{dom_display}"
+                        self.status_message = f"Enriching company {step_num}/{total}: {current_event[:35]}{dom_display}"
 
-            result = enricher.enrich_event_batch(
+            # Execute Company-Wise enrichment (deduplicates multi-event companies)
+            result = enricher.enrich_company_batch(
                 batch_size=batch_size,
                 credit_cap=credit_cap,
                 progress_callback=_progress,
@@ -694,11 +904,13 @@ class ApolloBackgroundWorker:
 
             with self._lock:
                 self.last_result = result
-                p_count = result.get("events_processed", 0)
+                p_count = result.get("companies_processed", 0)
+                e_count = result.get("total_events_updated", 0)
                 c_spent = result.get("total_credits_spent", 0)
                 self.processed = p_count
+                self.events_linked = e_count
                 self.credits_spent_batch = c_spent
-                self.status_message = f"Batch finished! Enriched {p_count} events (Spent {c_spent} credits)."
+                self.status_message = f"Batch finished! Enriched {p_count} companies ({e_count} events linked with P1 leads, {c_spent} credits spent)."
         except Exception as e:
             with self._lock:
                 self.error = str(e)

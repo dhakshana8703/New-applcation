@@ -47,3 +47,7 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T04:30:17.485164Z,12,2026 DAIS Partner Conference,match_creator,/people/bulk_match,ellie.nielsen@amwins.com,1,31
 2026-11-10T04:30:18.524903Z,12,2026 DAIS Partner Conference,search_persona_candidates,/mixed_people/api_search,amwins.com,0,31
 2026-11-10T04:30:19.865006Z,12,2026 DAIS Partner Conference,unlock_work_email,/people/match,66ed70871645090001b49d9d,1,32
+2026-11-10T04:47:11.414146Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,32
+2026-11-10T04:47:12.714566Z,1,AARP,unlock_work_email,/people/match,60a67d80e523e70001fe0268,1,33
+2026-11-10T04:47:25.845465Z,16,American Bar Association (ABA),search_persona_candidates,/mixed_people/api_search,americanbar.org,0,33
+2026-11-10T04:47:27.175641Z,16,American Bar Association (ABA),unlock_work_email,/people/match,606585a002202a0001fe9954,1,34
