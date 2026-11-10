@@ -646,6 +646,9 @@
       <button class="tab-btn" onclick="switchTab('companies')">
         Companies <span class="tab-badge" id="tabBadgeCompanies">...</span>
       </button>
+      <button class="tab-btn" onclick="switchTab('candidates')">
+        🎯 Discovered Leaders (P1/P2) <span class="tab-badge" id="tabBadgeCandidates" style="background: rgba(14, 165, 233, 0.25); color: #38bdf8;">...</span>
+      </button>
       <button class="tab-btn" onclick="switchTab('engine')">
         Scraper & Diagnostics
       </button>
@@ -737,6 +740,12 @@
             </button>
             <a href="/api/apollo/credit-log" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;" title="Download live CSV credit expenditure audit log">
               📊 Credit Log (CSV)
+            </a>
+            <a href="/api/apollo/download-candidates-csv" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; text-decoration: none;" title="Download complete sheet of all discovered P1 & P2 candidates">
+              📥 Candidates Sheet (.CSV)
+            </a>
+            <a href="/api/apollo/download-candidates-json" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;" title="Download Candidates JSON">
+              📄 JSON
             </a>
             <select id="apolloBatchSize" class="select-dropdown" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.2); color: #fff;">
               <option value="5" selected>5 Companies (Fast Test)</option>
@@ -878,7 +887,91 @@
     </div>
 
     <!-- TAB 3: ENGINE & DIAGNOSTICS -->
-    <div id="paneEngine" class="tab-pane">
+        <!-- TAB 4: DISCOVERED LEADERS (P1 / P2) (0-CREDIT DIRECTORY + ON-DEMAND UNLOCK) -->
+    <div id="paneCandidates" class="tab-pane">
+      <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">🎯</span>
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;">P1 &amp; P2 Discovered Leaders Directory (0-Credit Preview)</div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              Browse all discovered decision-makers across your companies. Review titles and unlock verified email &amp; LinkedIn on-demand (1 credit per unlock).
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <a href="/api/apollo/download-candidates-csv" target="_blank" class="btn" style="padding: 6px 14px; font-size: 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; text-decoration: none; font-weight: 600;">
+            📥 Download Candidates Sheet (.CSV)
+          </a>
+          <a href="/api/apollo/download-candidates-json" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;">
+            📄 Download JSON
+          </a>
+          <button class="btn btn-primary" onclick="triggerCandidateDiscovery()" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600; padding: 6px 14px; font-size: 12px;">
+            ⚡ Re-Scan Companies (0 Credits)
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="candidateSearch" class="search-input" placeholder="Search company, domain, title, name..." oninput="debounceCandidateSearch()">
+          <select id="candidatePersonaFilter" class="select-dropdown" onchange="fetchCandidates(0)">
+            <option value="all">All Personas (P1 &amp; P2)</option>
+            <option value="P1">P1 Decision-Makers Only</option>
+            <option value="P2">P2 Operational Buyers Only</option>
+          </select>
+          <select id="candidateStatusFilter" class="select-dropdown" onchange="fetchCandidates(0)">
+            <option value="all">All Statuses (Unlocked &amp; Preview)</option>
+            <option value="unlocked">Unlocked Only (Has Email)</option>
+            <option value="preview">Preview Only (Ready to Unlock)</option>
+          </select>
+        </div>
+        <div class="toolbar-right">
+          <span id="candidateCountSummary" style="font-size: 12px; color: var(--text-muted);">Loading candidates...</span>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-container">
+          <table id="candidatesTable">
+            <thead>
+              <tr>
+                <th width="75">Persona</th>
+                <th>Candidate Name</th>
+                <th>Verified Job Title</th>
+                <th>Company</th>
+                <th>Domain</th>
+                <th>Linked Events</th>
+                <th width="115">Status</th>
+                <th>Verified Email</th>
+                <th width="85">LinkedIn</th>
+                <th width="150">On-Demand Action</th>
+              </tr>
+            </thead>
+            <tbody id="candidatesTableBody">
+              <tr><td colspan="10" class="empty-state"><div class="spinner"></div> Loading discovered candidates...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <div id="candidatePaginationInfo">Showing 0 of 0 candidates</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);">
+              <span>Rows per page:</span>
+              <select id="candidatePageSize" class="select-dropdown" style="padding: 4px 8px; font-size: 12px;" onchange="changeCandidatePageSize(this.value)">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <button class="btn" id="btnPrevCandidates" onclick="changeCandidatePage(-1)">← Previous</button>
+            <button class="btn" id="btnNextCandidates" onclick="changeCandidatePage(1)">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<div id="paneEngine" class="tab-pane">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
         <!-- Single URL Quick Test -->
         <div class="table-card" style="padding: 20px;">
@@ -1078,8 +1171,12 @@
           fetchCompanies(0);
           companiesLoaded = true;
         }
-      } else if (tabName === 'engine') {
+      } else if (tabName === 'candidates') {
         document.querySelectorAll(".tab-btn")[3].classList.add("active");
+        document.getElementById("paneCandidates").classList.add("active");
+        fetchCandidates(0);
+      } else if (tabName === 'engine') {
+        document.querySelectorAll(".tab-btn")[4].classList.add("active");
         document.getElementById("paneEngine").classList.add("active");
       }
     }
@@ -1814,6 +1911,167 @@
         console.error("Apollo status poll error:", err);
       }
     }
-  </script>
+  
+    // ==============================================================================
+    // DISCOVERED CANDIDATES (0-CREDIT DIRECTORY & ON-DEMAND UNLOCK)
+    // ==============================================================================
+    let candidatePage = 0;
+    let candidateLimit = 50;
+    let candidateSearchTimer = null;
+
+    function debounceCandidateSearch() {
+      clearTimeout(candidateSearchTimer);
+      candidateSearchTimer = setTimeout(() => {
+        fetchCandidates(0);
+      }, 350);
+    }
+
+    function changeCandidatePageSize(sz) {
+      candidateLimit = parseInt(sz) || 50;
+      fetchCandidates(0);
+    }
+
+    function changeCandidatePage(delta) {
+      const next = candidatePage + delta;
+      if (next >= 0) {
+        fetchCandidates(next);
+      }
+    }
+
+    async function fetchCandidates(page = 0) {
+      candidatePage = page;
+      const search = (document.getElementById("candidateSearch") ? document.getElementById("candidateSearch").value : "").trim();
+      const persona = document.getElementById("candidatePersonaFilter") ? document.getElementById("candidatePersonaFilter").value : "all";
+      const statusFilter = document.getElementById("candidateStatusFilter") ? document.getElementById("candidateStatusFilter").value : "all";
+
+      let url = `/api/apollo/candidates?limit=${candidateLimit}&offset=${page * candidateLimit}`;
+      if (persona !== "all") url += `&persona=${encodeURIComponent(persona)}`;
+      if (statusFilter === "unlocked") url += `&unlocked=true`;
+      if (statusFilter === "preview") url += `&unlocked=false`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        renderCandidatesTable(data);
+      } catch (e) {
+        console.error("Candidates fetch error:", e);
+      }
+    }
+
+    function renderCandidatesTable(data) {
+      const tbody = document.getElementById("candidatesTableBody");
+      const cands = data.candidates || [];
+      const total = data.total || 0;
+
+      const badge = document.getElementById("tabBadgeCandidates");
+      if (badge) badge.innerText = total.toLocaleString();
+
+      const summary = document.getElementById("candidateCountSummary");
+      if (summary) summary.innerText = `Total Discovered: ${total.toLocaleString()}`;
+
+      const pInfo = document.getElementById("candidatePaginationInfo");
+      const start = data.offset + 1;
+      const end = Math.min(data.offset + data.limit, total);
+      if (pInfo) pInfo.innerText = total > 0 ? `Showing ${start}-${end} of ${total.toLocaleString()} candidates` : `Showing 0 of 0 candidates`;
+
+      const btnPrev = document.getElementById("btnPrevCandidates");
+      const btnNext = document.getElementById("btnNextCandidates");
+      if (btnPrev) btnPrev.disabled = candidatePage === 0;
+      if (btnNext) btnNext.disabled = end >= total;
+
+      if (!cands || cands.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="empty-state">No matching P1/P2 candidates discovered yet. Click "Re-Scan Companies" to discover candidates for 0 credits.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = cands.map(c => {
+        const personaBadge = c.persona === 'P1'
+          ? `<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; background:rgba(168, 85, 247, 0.2); color:#c084fc; border:1px solid rgba(168, 85, 247, 0.4);">P1</span>`
+          : (c.persona === 'P2'
+            ? `<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; background:rgba(59, 130, 246, 0.2); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.4);">P2</span>`
+            : `<span style="color:var(--text-muted); font-size:11px;">${escapeHtml(c.persona || '-')}</span>`);
+
+        const isUnlocked = Boolean(c.is_unlocked && c.email);
+        const statusBadge = isUnlocked
+          ? `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:rgba(16, 185, 129, 0.15); color:#34d399; border:1px solid rgba(16, 185, 129, 0.3);">✓ Unlocked</span>`
+          : `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; color:#94a3b8; background:rgba(148, 163, 184, 0.1); border:1px solid rgba(148, 163, 184, 0.2);">Preview (0 credits)</span>`;
+
+        const displayName = isUnlocked ? (c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim()) : (c.first_name ? `${escapeHtml(c.first_name)} [Hidden]` : '[Name Hidden]');
+        const emailDisplay = isUnlocked ? `<span style="color:#38bdf8; font-weight:500;">${escapeHtml(c.email)}</span>` : `<span style="color:var(--text-muted); font-size:11px;">🔒 Locked (Unlock to reveal)</span>`;
+        const linkedinDisplay = isUnlocked && c.linkedin_url && c.linkedin_url !== '-'
+          ? `<a href="${escapeHtml(c.linkedin_url)}" target="_blank" style="color:#0284c7; text-decoration:none; font-size:12px;">🔗 Profile</a>`
+          : `<span style="color:var(--text-muted); font-size:11px;">-</span>`;
+
+        const actionBtn = isUnlocked
+          ? `<span style="font-size:11px; color:#10b981; font-weight:600;">✓ Ready in People</span>`
+          : `<button class="btn btn-primary" onclick="unlockCandidate('${c.apollo_id}', '${escapeHtml(c.domain || '')}', this)" style="padding:4px 10px; font-size:11px; background:linear-gradient(135deg, #0284c7, #0ea5e9); font-weight:600;">⚡ Unlock Lead (1 credit)</button>`;
+
+        return `<tr>
+          <td>${personaBadge}</td>
+          <td style="font-weight:600;">${escapeHtml(displayName)}</td>
+          <td style="color:#e2e8f0; font-size:12px;">${escapeHtml(c.title || '-')}</td>
+          <td>${escapeHtml(c.company_name || '-')}</td>
+          <td><code style="font-size:11px; color:#94a3b8;">${escapeHtml(c.domain || '-')}</code></td>
+          <td style="text-align:center;"><span style="background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; font-size:11px;">${c.events_count || 0} events</span></td>
+          <td>${statusBadge}</td>
+          <td>${emailDisplay}</td>
+          <td>${linkedinDisplay}</td>
+          <td>${actionBtn}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function unlockCandidate(apolloId, domain, btnEl) {
+      if (!apolloId) return;
+      if (!confirm(`Unlock verified work email and LinkedIn for this candidate?\n\n• Consumes exactly 1 Apollo credit\n• Immediately links this leader across all associated Cvent events in the People table`)) {
+        return;
+      }
+
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = `⏳ Unlocking...`;
+      }
+
+      try {
+        const res = await fetch("/api/apollo/unlock-candidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apollo_id: apolloId, domain: domain })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "unlocked") {
+          alert(`Success! Lead Unlocked (1 credit consumed):\n\nName: ${data.name}\nTitle: ${data.title}\nWork Email: ${data.email}\nLinkedIn: ${data.linkedin_url}\nLinked to ${data.events_linked} events in People table.`);
+          checkApolloStatus();
+          fetchCandidates(candidatePage);
+          if (peopleLoaded) fetchPeople(0);
+        } else {
+          alert("Notice: " + (data.error || "Could not unlock candidate"));
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = `⚡ Unlock Lead (1 credit)`;
+          }
+        }
+      } catch (err) {
+        alert("Network error: " + err.message);
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.innerHTML = `⚡ Unlock Lead (1 credit)`;
+        }
+      }
+    }
+
+    async function triggerCandidateDiscovery() {
+      if (!confirm(`Run 0-Credit Apollo Candidate Discovery?\n\n• Scans company domains using free Apollo search\n• 0 credits consumed\n• Automatically updates the P1/P2 Candidates Sheet & JSON`)) {
+        return;
+      }
+      alert("Starting 0-credit candidate discovery in background... This will populate the spreadsheet and table without spending any credits.");
+      try {
+        fetch("/api/apollo/discover-candidates", { method: "POST" });
+        setTimeout(() => fetchCandidates(0), 3000);
+      } catch (e) {}
+    }
+
+</script>
 </body>
 </html>

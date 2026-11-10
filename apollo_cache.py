@@ -83,6 +83,30 @@ def init_apollo_cache_tables():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_apollo_comp_domain ON apollo_company_checkpoints(domain)")
+
+        # 5. Free Persona Candidates Directory (0-credit candidate pool for On-Demand 1-Click Enrichment)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS apollo_candidates (
+                apollo_id TEXT PRIMARY KEY,
+                company_id INTEGER DEFAULT 0,
+                company_name TEXT DEFAULT '',
+                domain TEXT DEFAULT '',
+                first_name TEXT DEFAULT '',
+                last_name TEXT DEFAULT '',
+                name TEXT DEFAULT '',
+                title TEXT DEFAULT '',
+                persona TEXT DEFAULT '-',
+                is_unlocked BOOLEAN DEFAULT 0,
+                email TEXT DEFAULT '',
+                linkedin_url TEXT DEFAULT '',
+                events_count INTEGER DEFAULT 0,
+                discovered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                unlocked_at TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_apollo_cand_domain ON apollo_candidates(domain)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_apollo_cand_persona ON apollo_candidates(persona)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_apollo_cand_unlocked ON apollo_candidates(is_unlocked)")
     conn.close()
 
 
@@ -260,11 +284,135 @@ def get_checkpoint_stats() -> Dict[str, Any]:
     org_count = cur.execute("SELECT COUNT(*) FROM apollo_org_cache").fetchone()[0]
     people_count = cur.execute("SELECT COUNT(*) FROM apollo_people_cache").fetchone()[0]
     event_count = cur.execute("SELECT COUNT(*) FROM apollo_event_checkpoints").fetchone()[0]
-    total_credits = cur.execute("SELECT SUM(credits_spent) FROM apollo_event_checkpoints").fetchone()[0] or 0
+    company_count = cur.execute("SELECT COUNT(*) FROM apollo_company_checkpoints").fetchone()[0]
+    cand_count = cur.execute("SELECT COUNT(*) FROM apollo_candidates").fetchone()[0]
+    unlocked_cand = cur.execute("SELECT COUNT(*) FROM apollo_candidates WHERE is_unlocked = 1").fetchone()[0]
+    total_credits = cur.execute("SELECT SUM(credits_spent) FROM apollo_company_checkpoints").fetchone()[0] or 0
     conn.close()
     return {
         "cached_organizations": org_count,
         "cached_people": people_count,
         "enriched_events": event_count,
+        "enriched_companies": company_count,
+        "discovered_candidates": cand_count,
+        "unlocked_candidates": unlocked_cand,
         "total_checkpoint_credits": total_credits
+    }
+
+
+# ==============================================================================
+# CANDIDATES DIRECTORY (0-CREDIT DISCOVERY & ON-DEMAND UNLOCKS)
+# ==============================================================================
+
+def upsert_candidate(cand: Dict[str, Any]):
+    """Insert or update a discovered P1/P2 candidate."""
+    apollo_id = cand.get("apollo_id") or cand.get("id")
+    if not apollo_id:
+        return
+
+    conn = _get_sqlite_conn()
+    with conn:
+        conn.execute("""
+            INSERT INTO apollo_candidates (
+                apollo_id, company_id, company_name, domain, first_name, last_name,
+                name, title, persona, is_unlocked, email, linkedin_url, events_count, discovered_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(apollo_id) DO UPDATE SET
+                company_id = CASE WHEN excluded.company_id > 0 THEN excluded.company_id ELSE apollo_candidates.company_id END,
+                company_name = CASE WHEN excluded.company_name != '' THEN excluded.company_name ELSE apollo_candidates.company_name END,
+                domain = CASE WHEN excluded.domain != '' THEN excluded.domain ELSE apollo_candidates.domain END,
+                title = CASE WHEN excluded.title != '' THEN excluded.title ELSE apollo_candidates.title END,
+                persona = excluded.persona,
+                events_count = CASE WHEN excluded.events_count > 0 THEN excluded.events_count ELSE apollo_candidates.events_count END,
+                is_unlocked = CASE WHEN excluded.is_unlocked = 1 THEN 1 ELSE apollo_candidates.is_unlocked END,
+                email = CASE WHEN excluded.email != '' THEN excluded.email ELSE apollo_candidates.email END,
+                name = CASE WHEN excluded.name != '' THEN excluded.name ELSE apollo_candidates.name END,
+                linkedin_url = CASE WHEN excluded.linkedin_url != '' THEN excluded.linkedin_url ELSE apollo_candidates.linkedin_url END
+        """, (
+            apollo_id,
+            cand.get("company_id", 0),
+            cand.get("company_name", ""),
+            cand.get("domain", "").lower().strip(),
+            cand.get("first_name", ""),
+            cand.get("last_name", ""),
+            cand.get("name", ""),
+            cand.get("title", ""),
+            cand.get("persona", "-"),
+            1 if cand.get("is_unlocked") else 0,
+            cand.get("email", ""),
+            cand.get("linkedin_url", ""),
+            cand.get("events_count", 0)
+        ))
+    conn.close()
+
+
+def mark_candidate_unlocked(apollo_id: str, full_name: str, email: str, linkedin_url: str):
+    """Mark a candidate as unlocked with their verified email and LinkedIn URL."""
+    if not apollo_id:
+        return
+    conn = _get_sqlite_conn()
+    with conn:
+        conn.execute("""
+            UPDATE apollo_candidates
+            SET is_unlocked = 1,
+                name = COALESCE(NULLIF(?, ''), name),
+                email = COALESCE(NULLIF(?, ''), email),
+                linkedin_url = COALESCE(NULLIF(?, ''), linkedin_url),
+                unlocked_at = CURRENT_TIMESTAMP
+            WHERE apollo_id = ?
+        """, (full_name, email, linkedin_url, apollo_id))
+    conn.close()
+
+
+def get_all_candidates_list(
+    persona: Optional[str] = None,
+    is_unlocked: Optional[bool] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """Retrieve candidates with filtering and pagination."""
+    conn = _get_sqlite_conn()
+    cur = conn.cursor()
+
+    conditions = ["1=1"]
+    params = []
+
+    if persona and persona != "all":
+        conditions.append("persona = ?")
+        params.append(persona.upper())
+
+    if is_unlocked is not None:
+        conditions.append("is_unlocked = ?")
+        params.append(1 if is_unlocked else 0)
+
+    if search:
+        s = f"%{search.lower().strip()}%"
+        conditions.append("(LOWER(company_name) LIKE ? OR LOWER(domain) LIKE ? OR LOWER(title) LIKE ? OR LOWER(first_name) LIKE ? OR LOWER(name) LIKE ? OR LOWER(email) LIKE ?)")
+        params.extend([s, s, s, s, s, s])
+
+    where_clause = " AND ".join(conditions)
+
+    count_sql = f"SELECT COUNT(*) FROM apollo_candidates WHERE {where_clause}"
+    total = cur.execute(count_sql, params).fetchone()[0]
+
+    select_sql = f"""
+        SELECT apollo_id, company_id, company_name, domain, first_name, last_name, name,
+               title, persona, is_unlocked, email, linkedin_url, events_count, discovered_at, unlocked_at
+        FROM apollo_candidates
+        WHERE {where_clause}
+        ORDER BY is_unlocked DESC, events_count DESC, persona ASC, apollo_id ASC
+        LIMIT ? OFFSET ?
+    """
+    params.extend([limit, offset])
+    rows = cur.execute(select_sql, params).fetchall()
+    conn.close()
+
+    candidates = [dict(r) for r in rows]
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "candidates": candidates
     }

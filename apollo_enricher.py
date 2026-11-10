@@ -45,6 +45,8 @@ from credit_tracker import credit_tracker
 import apollo_cache
 
 APOLLO_API_BASE = "https://api.apollo.io/v1"
+CANDIDATES_CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apollo_p1_p2_candidates.csv")
+CANDIDATES_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apollo_p1_p2_candidates.json")
 
 # ==============================================================================
 # PUBLIC WEBMAIL PROVIDERS BLOCKLIST (IMPROVEMENT 2)
@@ -52,9 +54,10 @@ APOLLO_API_BASE = "https://api.apollo.io/v1"
 
 PUBLIC_EMAIL_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
-    "icloud.com", "aol.com", "mail.com", "proton.me", "protonmail.com",
+    "icloud.com", "aol.com", "mail.com", "email.com", "proton.me", "protonmail.com",
     "zoho.com", "live.com", "msn.com", "yandex.com", "googlemail.com",
-    "comcast.net", "sbcglobal.net", "att.net", "verizon.net"
+    "comcast.net", "sbcglobal.net", "att.net", "verizon.net",
+    "cvent.com", "cventevents.com"
 }
 
 
@@ -328,6 +331,266 @@ class ApolloEnricher:
         except Exception as e:
             print(f"[Apollo] unlock_work_email failed for {person_id}: {e}")
         return None
+
+    # --------------------------------------------------------------------------
+    # 0-CREDIT CANDIDATE DISCOVERY & ON-DEMAND ENRICHMENT
+    # --------------------------------------------------------------------------
+    def export_candidates_files(self) -> Tuple[str, str]:
+        """Export all discovered candidates to CSV and JSON."""
+        import csv
+        import json
+        from datetime import datetime
+
+        data = apollo_cache.get_all_candidates_list(limit=2000, offset=0)
+        candidates = data.get("candidates", [])
+
+        # 1. Export CSV
+        with open(CANDIDATES_CSV_PATH, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Apollo ID", "Company Name", "Domain", "First Name", "Last Name",
+                "Full Name", "Title", "Persona (P1/P2)", "Status (Unlocked/Preview)",
+                "Work Email", "LinkedIn URL", "Linked Events Count"
+            ])
+            for c in candidates:
+                status = "Unlocked" if c.get("is_unlocked") else "Preview (0 credits)"
+                full_name = c.get("name") or f"{c.get('first_name', '')} {c.get('last_name', '')}".strip()
+                writer.writerow([
+                    c.get("apollo_id", ""),
+                    c.get("company_name", ""),
+                    c.get("domain", ""),
+                    c.get("first_name", ""),
+                    c.get("last_name", ""),
+                    full_name,
+                    c.get("title", ""),
+                    c.get("persona", ""),
+                    status,
+                    c.get("email", ""),
+                    c.get("linkedin_url", ""),
+                    c.get("events_count", 0)
+                ])
+
+        # 2. Export JSON
+        p1_cnt = sum(1 for c in candidates if c.get("persona") == "P1")
+        p2_cnt = sum(1 for c in candidates if c.get("persona") == "P2")
+        unlocked_cnt = sum(1 for c in candidates if c.get("is_unlocked"))
+
+        with open(CANDIDATES_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump({
+                "last_updated": datetime.utcnow().isoformat() + "Z",
+                "total_candidates": len(candidates),
+                "p1_count": p1_cnt,
+                "p2_count": p2_cnt,
+                "unlocked_count": unlocked_cnt,
+                "candidates": candidates
+            }, f, indent=2)
+
+        return CANDIDATES_CSV_PATH, CANDIDATES_JSON_PATH
+
+    def discover_p1_p2_candidates(
+        self,
+        max_companies: Optional[int] = None,
+        progress_callback = None,
+        stop_check = None
+    ) -> Dict[str, Any]:
+        """
+        Discovers ALL matching P1 & P2 candidates across unique companies for 0 CREDITS.
+        Populates the local SQLite candidate pool and exports to CSV and JSON.
+        """
+        conn = None
+        for _ in range(5):
+            try:
+                conn = get_db_connection()
+                break
+            except Exception:
+                time.sleep(1)
+
+        if not conn:
+            return {"error": "Could not connect to database"}
+
+        cur = conn.cursor() if hasattr(conn, 'cursor') else conn
+
+        # Query all unique companies with events
+        cur.execute("""
+            SELECT 
+                comp.id as company_id,
+                comp.name as company_name,
+                comp.domain,
+                COUNT(c.id) as event_count
+            FROM cvent_companies comp
+            JOIN cvent c ON c.company_id = comp.id
+            WHERE comp.domain != '' AND comp.domain IS NOT NULL
+            GROUP BY comp.id, comp.name, comp.domain
+            ORDER BY event_count DESC, comp.id ASC
+        """)
+        all_companies = cur.fetchall()
+        conn.close()
+
+        # Filter out public email domains
+        valid_companies = []
+        for c in all_companies:
+            dom = (c["domain"] if hasattr(c, "keys") else c[2] or "").lower().strip()
+            if dom and dom not in PUBLIC_EMAIL_DOMAINS:
+                valid_companies.append(c)
+
+        if max_companies:
+            valid_companies = valid_companies[:max_companies]
+
+        total_comps = len(valid_companies)
+        candidates_found = 0
+        p1_found = 0
+        p2_found = 0
+
+        for idx, c in enumerate(valid_companies):
+            if stop_check and stop_check():
+                break
+
+            comp_id = c["company_id"] if hasattr(c, "keys") else c[0]
+            comp_name = c["company_name"] if hasattr(c, "keys") else c[1]
+            dom = (c["domain"] if hasattr(c, "keys") else c[2] or "").lower().strip()
+            ev_cnt = c["event_count"] if hasattr(c, "keys") else c[3]
+
+            if progress_callback:
+                progress_callback(
+                    processed=idx + 1,
+                    total=total_comps,
+                    current_company=comp_name,
+                    domain=dom,
+                    candidates_so_far=candidates_found
+                )
+
+            # Free 0-credit candidate search by domain
+            cands = self.search_persona_candidates("", dom, event_id=comp_id, event_name=comp_name)
+            for cand in cands:
+                cand_id = cand.get("id")
+                if not cand_id:
+                    continue
+
+                title = cand.get("title") or ""
+                persona = classify_title(title)
+                if persona not in ("P1", "P2"):
+                    continue
+
+                if persona == "P1":
+                    p1_found += 1
+                elif persona == "P2":
+                    p2_found += 1
+
+                # Check if already unlocked in local cache
+                cached = apollo_cache.get_cached_person(cand_id)
+                is_unlocked = bool(cached and cached.get("email"))
+
+                cand_record = {
+                    "apollo_id": cand_id,
+                    "company_id": comp_id,
+                    "company_name": comp_name,
+                    "domain": dom,
+                    "first_name": cand.get("first_name", ""),
+                    "last_name": cand.get("last_name", "") if is_unlocked else "",
+                    "name": cached.get("name", "") if cached else "",
+                    "title": title,
+                    "persona": persona,
+                    "is_unlocked": is_unlocked,
+                    "email": cached.get("email", "") if cached else "",
+                    "linkedin_url": cached.get("linkedin_url", "") if cached else "",
+                    "events_count": ev_cnt
+                }
+                apollo_cache.upsert_candidate(cand_record)
+                candidates_found += 1
+
+            time.sleep(0.35)  # Rate limiting safety
+
+        # Generate CSV & JSON exports
+        csv_file, json_file = self.export_candidates_files()
+
+        return {
+            "status": "completed",
+            "companies_scanned": total_comps,
+            "total_candidates_found": candidates_found,
+            "p1_count": p1_found,
+            "p2_count": p2_found,
+            "csv_path": csv_file,
+            "json_path": json_file
+        }
+
+    def unlock_candidate_on_demand(self, apollo_id: str, domain: Optional[str] = None) -> Dict[str, Any]:
+        """
+        On-demand 1-click unlock for a specific candidate (1 credit).
+        Retrieves verified work email & LinkedIn, updates apollo_candidates,
+        and links lead across all company events in cvent_people!
+        """
+        if not apollo_id:
+            return {"error": "Missing apollo_id"}
+
+        # 1. Unlock work email via Apollo /people/match (1 credit)
+        profile = self.unlock_work_email(apollo_id)
+        if not profile:
+            return {"error": "Could not unlock profile via Apollo or no email available"}
+
+        name = profile.get("name") or f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip()
+        email = profile.get("email") or ""
+        linkedin = profile.get("linkedin_url") or "-"
+        title = profile.get("title") or "-"
+        persona = classify_title(title)
+        priority = "Primary" if persona == "P1" else ("Secondary" if persona == "P2" else "Other")
+
+        # 2. Update local SQLite candidate cache
+        apollo_cache.mark_candidate_unlocked(apollo_id, full_name=name, email=email, linkedin_url=linkedin)
+
+        # 3. Propagate to ALL linked events in Neon PostgreSQL cvent_people
+        conn = None
+        for _ in range(5):
+            try:
+                conn = get_db_connection()
+                break
+            except Exception:
+                time.sleep(1)
+
+        events_linked = 0
+        if conn:
+            cur = conn.cursor() if hasattr(conn, 'cursor') else conn
+            dom = domain or ""
+            if not dom and email and "@" in email:
+                dom = email.split("@")[-1].lower().strip()
+
+            if dom:
+                cur.execute("""
+                    SELECT id, organizer_company, event_url
+                    FROM cvent
+                    WHERE lower(split_part(creator_email, '@', 2)) = %s
+                       OR company_id IN (SELECT id FROM cvent_companies WHERE lower(domain) = %s)
+                """, (dom, dom))
+                events = cur.fetchall()
+
+                for ev in events:
+                    eid = ev["id"] if hasattr(ev, "keys") else ev[0]
+                    org = (ev["organizer_company"] if hasattr(ev, "keys") else ev[1]) or dom
+                    eurl = (ev["event_url"] if hasattr(ev, "keys") else ev[2]) or ""
+                    self._upsert_apollo_person(
+                        conn, eid, org, profile, persona=persona, priority=priority, source_url=eurl, is_creator=False
+                    )
+                    events_linked += 1
+
+            conn.commit()
+            conn.close()
+
+        # Update candidate sheet & json
+        try:
+            self.export_candidates_files()
+        except Exception:
+            pass
+
+        return {
+            "status": "unlocked",
+            "apollo_id": apollo_id,
+            "name": name,
+            "title": title,
+            "email": email,
+            "linkedin_url": linkedin,
+            "persona": persona,
+            "priority": priority,
+            "events_linked": events_linked
+        }
 
     # --------------------------------------------------------------------------
     # COMPANY-WISE LEAD ENRICHMENT ENGINE (IMPROVEMENT 3)

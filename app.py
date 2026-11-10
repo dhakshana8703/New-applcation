@@ -401,8 +401,107 @@ def api_apollo_enrich_batch():
     credit_cap = int(payload.get("credit_cap", 20))
 
     enricher = ApolloEnricher()
-    res = enricher.enrich_event_batch(batch_size=batch_size, credit_cap=credit_cap)
+    res = enricher.enrich_company_batch(batch_size=batch_size, credit_cap=credit_cap)
     return jsonify(res)
+
+
+# ==============================================================================
+# ON-DEMAND CANDIDATE ENRICHMENT & DIRECTORY ENDPOINTS
+# ==============================================================================
+
+@app.route("/api/apollo/candidates", methods=["GET"])
+def api_apollo_get_candidates():
+    """Retrieve discovered P1/P2 candidates with filtering and pagination."""
+    import apollo_cache
+    persona = request.args.get("persona")
+    unlocked_param = request.args.get("unlocked")
+    is_unlocked = None
+    if unlocked_param == "true" or unlocked_param == "1":
+        is_unlocked = True
+    elif unlocked_param == "false" or unlocked_param == "0":
+        is_unlocked = False
+
+    search = request.args.get("search", "").strip()
+    limit = int(request.args.get("limit", 50))
+    offset = int(request.args.get("offset", 0))
+
+    data = apollo_cache.get_all_candidates_list(
+        persona=persona,
+        is_unlocked=is_unlocked,
+        search=search,
+        limit=limit,
+        offset=offset
+    )
+    return jsonify(data)
+
+
+@app.route("/api/apollo/discover-candidates", methods=["POST"])
+def api_apollo_discover_candidates():
+    """Trigger 0-credit discovery of all P1 & P2 candidates across company domains."""
+    from apollo_enricher import ApolloEnricher
+    payload = request.get_json() or {}
+    max_companies = payload.get("max_companies")
+    if max_companies:
+        max_companies = int(max_companies)
+
+    enricher = ApolloEnricher()
+    res = enricher.discover_p1_p2_candidates(max_companies=max_companies)
+    return jsonify(res)
+
+
+@app.route("/api/apollo/unlock-candidate", methods=["POST"])
+def api_apollo_unlock_candidate():
+    """On-demand 1-click unlock for a specific candidate (costs 1 credit)."""
+    from apollo_enricher import ApolloEnricher
+    payload = request.get_json() or {}
+    apollo_id = payload.get("apollo_id", "").strip()
+    domain = payload.get("domain", "").strip()
+
+    if not apollo_id:
+        return jsonify({"error": "Missing apollo_id"}), 400
+
+    enricher = ApolloEnricher()
+    res = enricher.unlock_candidate_on_demand(apollo_id=apollo_id, domain=domain)
+    if "error" in res:
+        return jsonify(res), 422
+    return jsonify(res)
+
+
+@app.route("/api/apollo/download-candidates-csv", methods=["GET"])
+def api_apollo_download_candidates_csv():
+    """Download the discovered candidates spreadsheet as CSV."""
+    from apollo_enricher import CANDIDATES_CSV_PATH, ApolloEnricher
+    if not os.path.exists(CANDIDATES_CSV_PATH):
+        # Generate on the fly
+        ApolloEnricher().export_candidates_files()
+
+    if os.path.exists(CANDIDATES_CSV_PATH):
+        with open(CANDIDATES_CSV_PATH, "r", encoding="utf-8") as f:
+            data = f.read()
+        return Response(
+            data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=apollo_p1_p2_candidates.csv"}
+        )
+    return jsonify({"error": "No candidates spreadsheet generated yet"}), 404
+
+
+@app.route("/api/apollo/download-candidates-json", methods=["GET"])
+def api_apollo_download_candidates_json():
+    """Download the discovered candidates directory as JSON."""
+    from apollo_enricher import CANDIDATES_JSON_PATH, ApolloEnricher
+    if not os.path.exists(CANDIDATES_JSON_PATH):
+        ApolloEnricher().export_candidates_files()
+
+    if os.path.exists(CANDIDATES_JSON_PATH):
+        with open(CANDIDATES_JSON_PATH, "r", encoding="utf-8") as f:
+            data = f.read()
+        return Response(
+            data,
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=apollo_p1_p2_candidates.json"}
+        )
+    return jsonify({"error": "No candidates JSON generated yet"}), 404
 
 
 @app.errorhandler(400)

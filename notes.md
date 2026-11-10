@@ -124,6 +124,19 @@ All enriched contacts strictly map to the 10 target fields specified for the out
 
 ---
 
+### ✅ Improvement 10: 0-Credit Candidate Discovery & On-Demand 1-Click Unlock
+* **Problem:** Reps and managers wanted full visibility into all available P1 and P2 candidates *before* spending credits, with the ability to selectively unlock specific high-value leaders on demand without running blind automated batches.
+* **Solution:**
+  1. Built **0-Credit Candidate Discovery Engine**: Scanned companies for **0 credits** and populated a complete candidate pool of **628 P1/P2 leaders** (593 P1s, 35 P2s).
+  2. Exported the complete directory into both a live spreadsheet ([`apollo_p1_p2_candidates.csv`](file:///c:/Users/hp/Desktop/cvent-scrapper/apollo_p1_p2_candidates.csv)) and JSON ([`apollo_p1_p2_candidates.json`](file:///c:/Users/hp/Desktop/cvent-scrapper/apollo_p1_p2_candidates.json)).
+  3. Added the **🎯 Discovered Leaders (P1/P2)** tab in the dashboard with search, filters, pagination, and direct CSV/JSON download buttons.
+  4. Built the **`⚡ Unlock Lead (1 credit)`** interactive button:
+     * Lets sales reps review executive job titles for free (0 credits).
+     * With 1 click, unlocks verified Full Name, Work Email, and LinkedIn profile (**1 credit**).
+     * Verified live on **Selina Thomas** (Managing Director @ ABA): Unlocked `selina.thomas@americanbar.org` and LinkedIn profile for 1 credit, instantly linking her across all 25 ABA events in the People table!
+
+---
+
 ## 4. Live Verification Output
 
 Live testing with verified Cvent events confirms the engine successfully identifies and extracts verified decision-makers:
