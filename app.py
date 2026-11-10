@@ -200,6 +200,9 @@ def api_get_people():
     limit = int(request.args.get("limit", 25))
     offset = int(request.args.get("offset", 0))
     search = request.args.get("search", "")
+    company_domain = request.args.get("company_domain", "all")
+    persona = request.args.get("persona", "all")
+    status = request.args.get("status", "all")
     is_creator = request.args.get("is_creator", "all")
     contact_type = request.args.get("contact_type", "all")
     event_id = request.args.get("event_id")
@@ -209,11 +212,13 @@ def api_get_people():
         except ValueError:
             event_id = None
 
-    data = cvent_db.get_all_cvent_people(
+    data = cvent_db.get_unified_people(
         limit=limit,
         offset=offset,
         search=search,
-        is_creator_filter=is_creator,
+        company_domain=company_domain,
+        persona_filter=persona,
+        status_filter=status,
         contact_type_filter=contact_type,
         event_id=event_id
     )
@@ -326,6 +331,33 @@ def api_apollo_status():
         "worker": apollo_worker.get_status()
     })
 
+
+@app.route("/api/companies/domains-list", methods=["GET"])
+def api_get_companies_domains_list():
+    """Return all unique company domains with candidate counts for dropdown."""
+    data = cvent_db.get_company_domains_list()
+    return jsonify(data)
+
+
+@app.route("/api/companies/<int:company_id>/enrich", methods=["POST"])
+def api_enrich_single_company(company_id):
+    """Enrich a single company domain for 0 CREDITS using Apollo candidate search."""
+    body = request.get_json() or {}
+    comp = cvent_db.get_cvent_company_by_id(company_id)
+    if not comp:
+        return jsonify({"error": "Company not found"}), 404
+
+    domain = comp.get("domain") or body.get("domain", "")
+    company_name = comp.get("name") or body.get("name", "")
+
+    from apollo_enricher import ApolloEnricher
+    enricher = ApolloEnricher()
+    result = enricher.enrich_single_company(
+        domain=domain,
+        company_id=company_id,
+        company_name=company_name
+    )
+    return jsonify(result)
 
 @app.route("/api/apollo/start-batch", methods=["POST"])
 def api_apollo_start_batch():

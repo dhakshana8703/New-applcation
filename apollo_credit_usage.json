@@ -1,6 +1,6 @@
 {
   "total_credits_spent": 35,
-  "last_updated": "2026-11-10T09:11:18.851176Z",
+  "last_updated": "2026-11-10T12:10:11.357757Z",
   "breakdown": {
     "match_creator": 8,
     "enrich_organization": 12,
@@ -4546,6 +4546,26 @@
       "action": "search_persona_candidates",
       "endpoint": "/mixed_people/api_search",
       "target": "ogletree.com",
+      "credits": 0,
+      "cumulative_total": 35
+    },
+    {
+      "timestamp": "2026-11-10T12:08:54.291826Z",
+      "event_id": 1,
+      "event_name": "AARP",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 35
+    },
+    {
+      "timestamp": "2026-11-10T12:10:11.357757Z",
+      "event_id": 1,
+      "event_name": "AARP",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
       "credits": 0,
       "cumulative_total": 35
     }

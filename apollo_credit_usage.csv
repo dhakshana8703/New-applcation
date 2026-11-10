@@ -452,3 +452,5 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T09:11:15.295435Z,396,Leiu,search_persona_candidates,/mixed_people/api_search,leiu.org,0,35
 2026-11-10T09:11:16.688939Z,397,Dentalmanagers,search_persona_candidates,/mixed_people/api_search,dentalmanagers.com,0,35
 2026-11-10T09:11:18.851176Z,398,Ogletree,search_persona_candidates,/mixed_people/api_search,ogletree.com,0,35
+2026-11-10T12:08:54.291826Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,35
+2026-11-10T12:10:11.357757Z,1,AARP,search_persona_candidates,/mixed_people/api_search,aarp.org,0,35

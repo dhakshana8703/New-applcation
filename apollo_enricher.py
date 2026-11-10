@@ -132,9 +132,29 @@ P2_TITLES = [
 ]
 
 
-def classify_title(title: str) -> str:
-    """Classify a job title into P1, P2, or Neither."""
+NOISY_TITLE_SUBSTRINGS = [
+    "looking", "seeking", "former", "ex-", "past president", "past ", "formerly",
+    "student", "intern", "aspiring", "candidate for", "open to", "transitioning", 
+    "between roles", "retired", "emeritus", "alumni", "volunteer", "aide"
+]
+
+def is_valid_persona_title(title: str) -> bool:
+    """Strict title validation to reject fragments, job seekers, and ex-employees."""
     if not title:
+        return False
+    t = title.strip().lower()
+    if len(t) < 4:
+        return False
+    if t.endswith(" of") or t.endswith(" for") or t.endswith(" at"):
+        return False
+    for noisy in NOISY_TITLE_SUBSTRINGS:
+        if noisy in t:
+            return False
+    return True
+
+def classify_title(title: str) -> str:
+    """Classify a job title into P1, P2, or Neither with strict quality filters."""
+    if not is_valid_persona_title(title):
         return "Neither"
     t = title.lower().strip()
     for p1 in P1_TITLES:
@@ -386,6 +406,91 @@ class ApolloEnricher:
             }, f, indent=2)
 
         return CANDIDATES_CSV_PATH, CANDIDATES_JSON_PATH
+
+    def enrich_single_company(
+        self,
+        domain: str,
+        company_id: Optional[int] = None,
+        company_name: str = "",
+        event_count: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Enrich a single company domain for 0 CREDITS.
+        Fetches P1 & P2 candidates, applies strict quality filters,
+        upserts into SQLite candidate pool, and records checkpoint.
+        """
+        clean_dom = (domain or "").lower().strip()
+        if not clean_dom or clean_dom in PUBLIC_EMAIL_DOMAINS:
+            return {"error": f"Invalid or public domain: {domain}", "candidates": [], "p1_count": 0, "p2_count": 0}
+
+        raw_candidates = self.search_persona_candidates("", clean_dom, event_id=company_id, event_name=company_name)
+        p1_list = []
+        p2_list = []
+        valid_candidates = []
+
+        for cand in raw_candidates:
+            cid = cand.get("id")
+            if not cid:
+                continue
+
+            title = cand.get("title") or ""
+            persona = classify_title(title)
+            if persona not in ("P1", "P2"):
+                continue
+
+            fname = cand.get("first_name") or ""
+            lname = cand.get("last_name") or ""
+            name = cand.get("name") or (f"{fname} {lname}".strip() or fname)
+
+            cand_dict = {
+                "apollo_id": cid,
+                "company_id": company_id or 0,
+                "company_name": company_name or clean_dom,
+                "domain": clean_dom,
+                "first_name": fname,
+                "last_name": lname,
+                "name": name,
+                "title": title,
+                "persona": persona,
+                "is_unlocked": False,
+                "email": cand.get("email") or "",
+                "linkedin_url": cand.get("linkedin_url") or "",
+                "events_count": event_count
+            }
+
+            apollo_cache.upsert_candidate(cand_dict)
+            valid_candidates.append(cand_dict)
+
+            if persona == "P1":
+                p1_list.append(cand_dict)
+            elif persona == "P2":
+                p2_list.append(cand_dict)
+
+        # Record company checkpoint
+        p1_top = p1_list[0]["name"] if p1_list else "-"
+        p2_top = p2_list[0]["name"] if p2_list else "-"
+        try:
+            apollo_cache.record_company_checkpoint(
+                company_id=company_id or 0,
+                domain=clean_dom,
+                company_name=company_name,
+                events_linked=event_count,
+                p1_name=p1_top,
+                p2_name=p2_top,
+                credits_spent=0
+            )
+        except Exception as e:
+            print(f"[Apollo] Failed to record company checkpoint: {e}")
+
+        return {
+            "success": True,
+            "domain": clean_dom,
+            "company_name": company_name or clean_dom,
+            "p1_count": len(p1_list),
+            "p2_count": len(p2_list),
+            "total_candidates": len(valid_candidates),
+            "candidates": valid_candidates
+        }
 
     def discover_p1_p2_candidates(
         self,

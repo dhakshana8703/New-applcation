@@ -416,3 +416,51 @@ def get_all_candidates_list(
         "offset": offset,
         "candidates": candidates
     }
+
+
+def get_company_candidate_stats() -> Dict[str, Dict[str, Any]]:
+    """Get P1 count, P2 count, and last enriched date for each company domain."""
+    conn = _get_sqlite_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT domain,
+               SUM(CASE WHEN persona = 'P1' THEN 1 ELSE 0 END) as p1_count,
+               SUM(CASE WHEN persona = 'P2' THEN 1 ELSE 0 END) as p2_count,
+               COUNT(*) as total_count,
+               MAX(discovered_at) as last_enriched
+        FROM apollo_candidates
+        WHERE domain != '' AND domain IS NOT NULL
+        GROUP BY domain
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return {
+        (r[0] or "").lower().strip(): {
+            "p1_count": r[1] or 0,
+            "p2_count": r[2] or 0,
+            "total_count": r[3] or 0,
+            "last_enriched": r[4] or ""
+        }
+        for r in rows
+    }
+
+
+def get_candidate_domains_summary() -> List[Dict[str, Any]]:
+    """Return domains list with company name and count for dropdown."""
+    conn = _get_sqlite_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT domain, company_name, COUNT(*) as cnt,
+               SUM(CASE WHEN persona = 'P1' THEN 1 ELSE 0 END) as p1,
+               SUM(CASE WHEN persona = 'P2' THEN 1 ELSE 0 END) as p2
+        FROM apollo_candidates
+        WHERE domain != '' AND domain IS NOT NULL
+        GROUP BY domain
+        ORDER BY cnt DESC, domain ASC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return [
+        {"domain": r[0], "name": r[1] or r[0], "count": r[2], "p1": r[3], "p2": r[4]}
+        for r in rows
+    ]

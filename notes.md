@@ -159,3 +159,27 @@ Live testing with verified Cvent events confirms the engine successfully identif
 * [x] **Background Asynchronous Worker:** Decouple batch runs into background worker threads so batches of 50+ events run without HTTP timeouts. *(Completed in Improvement 7)*
 * [ ] **Weighted Title Priority Scoring:** Rank event-specific executives (`VP of Events`) higher than generic corporate officers (`CEO`).
 * [ ] **Outbound CRM Integration:** Add a direct 1-click webhook to push Primary leads into Smartlead / Instantly / HubSpot.
+
+
+---
+
+### Improvement 11: Unified Company-Wise & People Architecture (Manager Requirements)
+**Author:** Dhakshana Moorthy & Antigravity  
+**Stakeholders:** Pallav Barah, Gautam Singh  
+**Date:** November 10, 2026  
+
+#### Summary & Goals:
+Directly implementing the architecture finalized in the management meeting:
+1. **Pipeline Flow:** `Events` -> `Companies` -> `People`.
+2. **Unified People Tab:** Folded the candidate pool directly into the core **People** tab (removing the separate "Discovered Leaders" tab). Shows the full company team together: Cvent Creator + P1 Decision-Makers + P2 Operational Buyers.
+3. **Company Dropdown in People Tab:** Added an instant company filter dropdown (`🏢 All Companies`, `AARP (aarp.org)`, etc.) to view any organization's full roster.
+4. **Companies Tab Enhancements:**
+   - Added `P1 Leaders` count badge, `P2 Leaders` count badge, and `Enrichment Status`.
+   - Added an on-demand `⚡ Enrich (0c)` button per row to discover P1/P2 executives for 0 Apollo credits.
+   - Added a `👥 People` button to jump straight to that company in the People tab.
+5. **Strict Title Sanitization & Deduplication (Pallav Barah Feedback):**
+   - Implemented strict rejection of title noise (job seekers like `"Looking for"`, former employees like `"Past President"`, `"Emeritus"`, `"Intern"`).
+   - Purged 122 noisy records, retaining 1,502 verified high-quality leaders.
+6. **Cost Economics Maintained:**
+   - Company discovery: **0 Apollo Credits**.
+   - Contact unlock: **1 Credit per person** on demand via `⚡ Unlock (1c)` button.

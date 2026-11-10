@@ -653,8 +653,26 @@ def get_all_cvent_companies(limit=50, offset=0, search="", filter_type="all"):
     rows = conn.execute(data_sql, data_params).fetchall()
     conn.close()
 
+    try:
+        import apollo_cache
+        cand_stats = apollo_cache.get_company_candidate_stats()
+    except Exception:
+        cand_stats = {}
+
+    companies = []
+    for r in rows:
+        d = dict(r)
+        dom = (d.get("domain") or "").lower().strip()
+        st = cand_stats.get(dom, {})
+        d["p1_count"] = st.get("p1_count", 0)
+        d["p2_count"] = st.get("p2_count", 0)
+        d["total_candidates"] = st.get("total_count", 0)
+        d["last_enriched"] = st.get("last_enriched", "")
+        d["is_enriched"] = bool(st.get("total_count", 0) > 0)
+        companies.append(d)
+
     return {
-        "companies": [dict(r) for r in rows],
+        "companies": companies,
         "total": total_count,
         "limit": limit,
         "offset": offset
@@ -1020,7 +1038,7 @@ def get_all_cvent_people(limit=50, offset=0, search="", is_creator_filter="all",
     params = []
 
     if event_id:
-        conditions.append("p.event_id = ?")
+        conditions.append("p.event_id = %s")
         params.append(event_id)
 
     if search:
@@ -1108,3 +1126,198 @@ def export_cvent_people_csv(is_creator_filter="all", contact_type_filter="all", 
             p.get("scraper_source", "Cvent")
         ])
     return output.getvalue()
+
+
+
+def get_company_domains_list():
+    """Return all unique company domains with candidate counts for dropdown."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT c.id, c.name, c.domain, COUNT(cv.id) as event_count
+        FROM cvent_companies c
+        LEFT JOIN cvent cv ON cv.company_id = c.id
+        WHERE c.domain != '' AND c.domain IS NOT NULL
+        GROUP BY c.id, c.name, c.domain
+        ORDER BY event_count DESC, c.name ASC
+    """)
+    comps = cur.fetchall()
+    conn.close()
+
+    try:
+        import apollo_cache
+        cand_stats = apollo_cache.get_company_candidate_stats()
+    except Exception:
+        cand_stats = {}
+
+    result = []
+    for c in comps:
+        row = dict(c)
+        dom = (row.get("domain") or "").lower().strip()
+        st = cand_stats.get(dom, {})
+        result.append({
+            "id": row["id"],
+            "name": row["name"] or dom,
+            "domain": dom,
+            "events_count": row.get("event_count", 0),
+            "p1_count": st.get("p1_count", 0),
+            "p2_count": st.get("p2_count", 0),
+            "total_candidates": st.get("total_count", 0)
+        })
+    return result
+
+
+def get_unified_people(
+    limit=50,
+    offset=0,
+    search="",
+    company_domain="all",
+    persona_filter="all",
+    status_filter="all",
+    contact_type_filter="all",
+    event_id=None
+):
+    """
+    Unified query combining Cvent Creators (PostgreSQL) and Discovered Leaders (SQLite candidates).
+    Enables company-wise drilling, persona filtering, and 1-click on-demand unlock.
+    """
+    import sqlite3
+    search_clean = (search or "").lower().strip()
+    dom_clean = (company_domain or "all").lower().strip()
+
+    # 1. Fetch Apollo Candidates from SQLite
+    candidates = []
+    conn_sq = sqlite3.connect("cvent_cache.db")
+    cur_sq = conn_sq.cursor()
+
+    sq_conds = ["1=1"]
+    sq_params = []
+
+    if dom_clean != "all" and dom_clean != "":
+        sq_conds.append("LOWER(domain) = ?")
+        sq_params.append(dom_clean)
+
+    if persona_filter in ("P1", "P2"):
+        sq_conds.append("persona = ?")
+        sq_params.append(persona_filter)
+    elif persona_filter == "creator":
+        sq_conds.append("1=0")
+
+    if status_filter == "unlocked":
+        sq_conds.append("is_unlocked = 1")
+    elif status_filter == "locked":
+        sq_conds.append("is_unlocked = 0")
+
+    if search_clean:
+        s = f"%{search_clean}%"
+        sq_conds.append("(LOWER(company_name) LIKE ? OR LOWER(domain) LIKE ? OR LOWER(title) LIKE ? OR LOWER(name) LIKE ? OR LOWER(first_name) LIKE ? OR LOWER(email) LIKE ?)")
+        sq_params.extend([s, s, s, s, s, s])
+
+    cur_sq.execute(f"""
+        SELECT apollo_id, company_id, company_name, domain, first_name, last_name, name,
+               title, persona, is_unlocked, email, linkedin_url, events_count, discovered_at, unlocked_at
+        FROM apollo_candidates
+        WHERE {' AND '.join(sq_conds)}
+    """, sq_params)
+
+    for r in cur_sq.fetchall():
+        disp_name = r[6] if (r[6] and r[6].strip()) else (r[4] or "Leader (Preview)")
+        candidates.append({
+            "id": f"c_{r[0]}",
+            "contact_name": disp_name,
+            "designation": r[7] or "Executive",
+            "organizer_name": r[2] or r[3],
+            "domain": r[3] or "",
+            "email": r[10] or "",
+            "linkedin_url": r[11] or "",
+            "persona": r[8],
+            "is_creator_email": False,
+            "outreach_priority": "Primary" if r[8] == "P1" else "Secondary",
+            "is_unlocked": bool(r[9]),
+            "apollo_id": r[0],
+            "event_name": f"{r[12]} linked events" if r[12] else "-",
+            "source_url": "",
+            "source": "Apollo (Unlocked)" if r[9] else "Apollo (Preview)"
+        })
+    conn_sq.close()
+
+    # 2. Fetch Cvent Creators from PostgreSQL
+    creators = []
+    if persona_filter not in ("P1", "P2") and status_filter != "locked":
+        conn_pg = get_connection()
+        cur_pg = conn_pg.cursor()
+
+        pg_conds = ["1=1"]
+        pg_params = []
+
+        if dom_clean != "all" and dom_clean != "":
+            pg_conds.append("(LOWER(comp.domain) = %s OR LOWER(split_part(p.email, '@', 2)) = %s)")
+            pg_params.extend([dom_clean, dom_clean])
+
+        if search_clean:
+            s = f"%{search_clean}%"
+            pg_conds.append("(LOWER(p.contact_name) LIKE %s OR LOWER(p.organizer_name) LIKE %s OR LOWER(p.email) LIKE %s OR LOWER(p.designation) LIKE %s)")
+            pg_params.extend([s, s, s, s])
+
+        if event_id:
+            pg_conds.append("p.event_id = %s")
+            pg_params.append(event_id)
+
+        if contact_type_filter == "in_house":
+            pg_conds.append("p.contact_type = 'In-House'")
+        elif contact_type_filter == "agency":
+            pg_conds.append("p.contact_type = '3rd-Party Agency'")
+
+        sql = f"""
+            SELECT p.id, p.contact_name, p.designation, p.organizer_name, p.email, p.linkedin_url,
+                   p.persona, p.is_creator_email, p.outreach_priority, p.apollo_id, p.source_url,
+                   p.contact_type, c.event_name, comp.domain as company_domain
+            FROM cvent_people p
+            LEFT JOIN cvent c ON p.event_id = c.id
+            LEFT JOIN cvent_companies comp ON c.company_id = comp.id
+            WHERE {' AND '.join(pg_conds)}
+        """
+        cur_pg.execute(sql, pg_params)
+        for r in cur_pg.fetchall():
+            row = dict(r)
+            creators.append({
+                "id": row["id"],
+                "contact_name": row["contact_name"] or "-",
+                "designation": row["designation"] if (row["designation"] and row["designation"] != "-") else "Event Organizer",
+                "organizer_name": row["organizer_name"] or "-",
+                "domain": row.get("company_domain") or (row["email"].split("@")[-1] if row["email"] and "@" in row["email"] else ""),
+                "email": row["email"] or "",
+                "linkedin_url": row["linkedin_url"] or "",
+                "persona": "Creator",
+                "is_creator_email": bool(row["is_creator_email"]),
+                "outreach_priority": row["outreach_priority"] or "Creator",
+                "is_unlocked": bool(row["email"]),
+                "apollo_id": row.get("apollo_id") or "",
+                "event_name": row.get("event_name") or "-",
+                "source_url": row.get("source_url") or "",
+                "source": "Cvent Scraper"
+            })
+        conn_pg.close()
+
+    # 3. Combine and Sort:
+    # 1. Unlocked P1s -> 2. Unlocked P2s -> 3. Locked P1s -> 4. Locked P2s -> 5. Creators
+    def sort_key(item):
+        if item["persona"] == "P1":
+            return (0 if item["is_unlocked"] else 2, item["contact_name"] or "")
+        elif item["persona"] == "P2":
+            return (1 if item["is_unlocked"] else 3, item["contact_name"] or "")
+        else:
+            return (4, item["contact_name"] or "")
+
+    combined = candidates + creators
+    combined.sort(key=sort_key)
+
+    total = len(combined)
+    paginated = combined[offset:offset+limit]
+
+    return {
+        "people": paginated,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
