@@ -498,19 +498,39 @@ def bulk_delete_cvent_events(event_ids: list):
 # CVENT COMPANIES
 # ==============================================================================
 
+GENERIC_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+    "icloud.com", "aol.com", "cvent.com", "cventmail.com", "cventevents.com",
+    "proton.me", "protonmail.com", "email.com", "no.mail", "test.com", "example.com"
+}
+
+KNOWN_DOMAIN_NAMES = {
+    "aa.org": "Alcoholics Anonymous",
+    "nd.edu": "University of Notre Dame",
+    "bc.edu": "Boston College",
+    "up.ac.za": "University of Pretoria",
+    "edd.ca.gov": "California EDD",
+    "epicgames.com": "Epic Games",
+    "xa.epicgames.com": "Epic Games",
+    "mit.edu": "MIT",
+    "nyu.edu": "NYU",
+    "ucla.edu": "UCLA",
+    "usc.edu": "USC",
+    "jmu.edu": "James Madison University",
+    "wisc.edu": "University of Wisconsin",
+    "trace3.com": "Trace3",
+    "shrmli.org": "SHRM Long Island"
+}
+
 def extract_domain_from_email(email: str) -> str:
     """Extract company domain from creator email, ignoring generic providers."""
     if not email or "@" not in email:
         return ""
-    generic = {
-        "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
-        "icloud.com", "aol.com", "cvent.com", "cventmail.com", "proton.me", "protonmail.com"
-    }
     for em in email.replace(";", ",").split(","):
         em = em.strip()
         if "@" in em:
             dom = em.split("@")[-1].lower().strip()
-            if dom and dom not in generic:
+            if dom and dom not in GENERIC_EMAIL_DOMAINS:
                 return dom
     return ""
 
@@ -588,7 +608,23 @@ def extract_companies_from_cvent(event_ids: list = None) -> dict:
         if not org_name and not domain:
             continue
 
-        name = org_name or domain.split(".")[0].capitalize()
+        if domain and domain.lower() in GENERIC_EMAIL_DOMAINS:
+            continue
+
+        if "autouser" in email.lower():
+            continue
+
+        if domain and domain.lower() in KNOWN_DOMAIN_NAMES:
+            name = KNOWN_DOMAIN_NAMES[domain.lower()]
+        elif org_name:
+            name = org_name
+        elif domain:
+            raw_part = domain.split(".")[0]
+            if len(raw_part) <= 2:
+                continue
+            name = raw_part.capitalize()
+        else:
+            continue
         company_id = None
 
         if domain and domain.lower() in domain_to_id:
