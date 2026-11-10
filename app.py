@@ -236,6 +236,9 @@ def api_get_people():
 @app.route("/api/people/export", methods=["GET"])
 def api_export_people_csv():
     search = request.args.get("search", "")
+    company_domain = request.args.get("company_domain", "all")
+    persona = request.args.get("persona", "all")
+    status = request.args.get("status", "all")
     is_creator = request.args.get("is_creator", "all")
     contact_type = request.args.get("contact_type", "all")
     event_id = request.args.get("event_id")
@@ -249,12 +252,16 @@ def api_export_people_csv():
         is_creator_filter=is_creator,
         contact_type_filter=contact_type,
         search=search,
-        event_id=event_id
+        event_id=event_id,
+        company_domain=company_domain,
+        persona_filter=persona,
+        status_filter=status
     )
+    filename = f"cvent_people_{company_domain}.csv" if company_domain and company_domain != "all" else "cvent_people_export.csv"
     return Response(
         csv_data,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=cvent_people_export.csv"}
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
     )
 
 

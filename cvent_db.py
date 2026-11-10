@@ -1189,36 +1189,52 @@ def get_all_cvent_people(limit=50, offset=0, search="", is_creator_filter="all",
     }
 
 
-def export_cvent_people_csv(is_creator_filter="all", contact_type_filter="all", search="", event_id=None) -> str:
-    """Export people matching the manager's exact 10 columns."""
-    res = get_all_cvent_people(
-        limit=50000, offset=0, search=search,
-        is_creator_filter=is_creator_filter,
+def export_cvent_people_csv(
+    is_creator_filter="all",
+    contact_type_filter="all",
+    search="",
+    event_id=None,
+    company_domain="all",
+    persona_filter="all",
+    status_filter="all"
+) -> str:
+    """Export unified people (Cvent Creators + Apollo Discovered Leaders) matching active filters."""
+    res = get_unified_people(
+        limit=50000,
+        offset=0,
+        search=search,
+        company_domain=company_domain,
+        persona_filter=persona_filter,
+        status_filter=status_filter,
         contact_type_filter=contact_type_filter,
         event_id=event_id
     )
     people = res["people"]
 
     csv_fields = [
-        "Name", "Designation", "Company", "Email", "LinkedIn",
-        "Persona", "Cvent Creator", "Outreach Priority", "Related Event(s)", "Source"
+        "ID", "Contact Name", "Designation", "Company", "Domain", "Verified Email",
+        "LinkedIn", "Persona", "Creator", "Status", "Outreach Priority", "Related Event / Context", "Source"
     ]
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(csv_fields)
     for p in people:
-        is_creator_str = "Yes" if p.get("is_creator_email") else "No"
+        is_creator_str = "YES" if p.get("is_creator_email") else "NO"
+        status_str = "Unlocked" if p.get("is_unlocked") else "Locked"
         writer.writerow([
+            p.get("id", ""),
             p.get("contact_name", "-"),
             p.get("designation", "-"),
             p.get("organizer_name", "-"),
+            p.get("domain", ""),
             p.get("email", ""),
             p.get("linkedin_url", "-"),
             p.get("persona", "-"),
             is_creator_str,
+            status_str,
             p.get("outreach_priority", "-"),
             p.get("event_name") or p.get("source_url", ""),
-            p.get("scraper_source", "Cvent")
+            p.get("source", "Cvent Scraper")
         ])
     return output.getvalue()
 

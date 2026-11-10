@@ -777,22 +777,39 @@
           <span id="apolloBatchCreditLive" style="font-size: 11px; opacity: 0.85;"></span>
         </div>
       </div>
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <input type="text" id="peopleSearch" class="search-input" placeholder="Search organizer, contact, email, phone..." oninput="debouncePeopleSearch()">
-          <select id="peopleCreatorFilter" class="select-dropdown" onchange="fetchPeople(0)">
-            <option value="all">All Roles (Creators &amp; Team)</option>
-            <option value="creator_only">Creator Emails Only (YES)</option>
-            <option value="secondary_only">Secondary Team Contacts (NO)</option>
+      <div class="toolbar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
+        <div class="toolbar-left" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <input type="text" id="peopleSearch" class="search-input" placeholder="Search name, designation, email..." oninput="debouncePeopleSearch()" style="min-width: 200px;">
+          
+          <!-- Company Dropdown Filter -->
+          <select id="peopleCompanyFilter" class="select-dropdown" onchange="onCompanySelectChange()" style="max-width: 250px; font-weight: 600; color: #38bdf8;">
+            <option value="all">🏢 All Companies</option>
           </select>
+
+          <!-- Persona Filter (P1, P2, Creator) -->
+          <select id="peoplePersonaFilter" class="select-dropdown" onchange="fetchPeople(0)" style="font-weight: 600;">
+            <option value="all">🎯 All Personas</option>
+            <option value="P1">🎯 P1 Decision-Makers</option>
+            <option value="P2">⚙️ P2 Operational Buyers</option>
+            <option value="creator">📧 Cvent Event Creators</option>
+          </select>
+
+          <!-- Lead Unlock Status Filter -->
+          <select id="peopleStatusFilter" class="select-dropdown" onchange="fetchPeople(0)" style="font-weight: 600;">
+            <option value="all">⚡ All Statuses</option>
+            <option value="unlocked">✓ Unlocked Leads</option>
+            <option value="locked">🔒 Locked (Ready to Unlock)</option>
+          </select>
+
+          <!-- Contact Type Filter -->
           <select id="peopleTypeFilter" class="select-dropdown" onchange="fetchPeople(0)">
-            <option value="all">All Contact Types</option>
+            <option value="all">All Types (In-House &amp; Agency)</option>
             <option value="in_house">In-House Only</option>
             <option value="agency">3rd-Party Agency Only</option>
           </select>
         </div>
         <div class="toolbar-right">
-          <button class="btn" onclick="exportPeopleCsv()">📥 Export People CSV</button>
+          <button class="btn" onclick="exportPeopleCsv()" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8; font-weight: 600;">📥 Export People CSV</button>
         </div>
       </div>
 
@@ -822,11 +839,11 @@
           <div style="display: flex; align-items: center; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);">
               <span>Rows per page:</span>
-              <select id="peoplePageSize" class="select-dropdown" style="padding: 4px 8px; font-size: 12px;" onchange="changePeoplePageSize(this.value)">
+              <select id="peoplePageSize" class="select-dropdown" style="padding: 4px 8px; font-size: 12px; font-weight: 600;" onchange="changePeoplePageSize(this.value)">
                 <option value="25" selected>25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
-                <option value="1200">All (1,094)</option>
+                <option value="all">All Contacts</option>
               </select>
             </div>
             <button class="btn" id="btnPrevPeople" onclick="changePeoplePage(-1)">← Previous</button>
@@ -1382,7 +1399,8 @@
       const tbody = document.getElementById("peopleTableBody");
       tbody.innerHTML = `<tr><td colspan="9" class="empty-state"><div class="spinner"></div> Loading contacts...</td></tr>`;
 
-      let url = `/api/people?limit=${peopleLimit}&offset=${offset}&search=${encodeURIComponent(search)}&company_domain=${encodeURIComponent(compDom)}&persona=${encodeURIComponent(persona)}&status=${encodeURIComponent(status)}`;
+      const contactType = document.getElementById("peopleTypeFilter") ? document.getElementById("peopleTypeFilter").value : "all";
+      let url = `/api/people?limit=${peopleLimit}&offset=${offset}&search=${encodeURIComponent(search)}&company_domain=${encodeURIComponent(compDom)}&persona=${encodeURIComponent(persona)}&status=${encodeURIComponent(status)}&contact_type=${encodeURIComponent(contactType)}`;
       if (currentFilterEventId) {
         url += `&event_id=${currentFilterEventId}`;
       }
@@ -1508,7 +1526,8 @@
       const compDom = (currentCompanyFilterDomain && currentCompanyFilterDomain !== "all") ? currentCompanyFilterDomain : (document.getElementById("peopleCompanyFilter") ? document.getElementById("peopleCompanyFilter").value : "all");
       const persona = document.getElementById("peoplePersonaFilter") ? document.getElementById("peoplePersonaFilter").value : "all";
       const status = document.getElementById("peopleStatusFilter") ? document.getElementById("peopleStatusFilter").value : "all";
-      let url = `/api/people?limit=5000&search=${encodeURIComponent(search)}&company_domain=${encodeURIComponent(compDom)}&persona=${encodeURIComponent(persona)}&status=${encodeURIComponent(status)}`;
+      const contactType = document.getElementById("peopleTypeFilter") ? document.getElementById("peopleTypeFilter").value : "all";
+      let url = `/api/people/export?search=${encodeURIComponent(search)}&company_domain=${encodeURIComponent(compDom)}&persona=${encodeURIComponent(persona)}&status=${encodeURIComponent(status)}&contact_type=${encodeURIComponent(contactType)}`;
       if (currentFilterEventId) {
         url += `&event_id=${currentFilterEventId}`;
       }
@@ -1648,7 +1667,9 @@
             btn.innerHTML = `⚡ Unlock (1c)`;
           }
         } else {
-          alert(`✓ Lead Unlocked for 1 Credit!\nName: ${data.name}\nEmail: ${data.email}\nLinkedIn: ${data.linkedin_url}`);
+          const emailMsg = data.email ? data.email : "No email listed on Apollo";
+          const linkedinMsg = (data.linkedin_url && data.linkedin_url !== "-") ? data.linkedin_url : "No LinkedIn profile on Apollo";
+          alert(`⚡ Lead Unlocked (1 Apollo Credit Used)!\n\n• Name: ${data.name}\n• Title: ${data.title || '-'}\n• Verified Email: ${emailMsg}\n• LinkedIn: ${linkedinMsg}`);
           fetchPeople(currentPeopleOffset);
           checkApolloStatus();
         }
