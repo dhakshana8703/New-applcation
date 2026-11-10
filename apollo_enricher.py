@@ -632,7 +632,17 @@ class ApolloEnricher:
         if not profile:
             return {"error": "Could not unlock profile via Apollo or no email available"}
 
-        name = profile.get("name") or f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip()
+        fname = (profile.get("first_name") or "").strip()
+        lname = (profile.get("last_name") or "").strip()
+        if fname.lower() == "none": fname = ""
+        if lname.lower() == "none": lname = ""
+        raw_name = profile.get("name") or f"{fname} {lname}".strip()
+        if not raw_name or raw_name.lower() in ("none none", "none"):
+            cand_info = apollo_cache.get_all_candidates_list(search=apollo_id, limit=1)
+            cands = cand_info.get("candidates", [])
+            name = (cands[0].get("name") if cands else "") or fname or "Executive"
+        else:
+            name = raw_name
         email = profile.get("email") or ""
         linkedin = profile.get("linkedin_url") or "-"
         title = profile.get("title") or "-"
@@ -1127,7 +1137,17 @@ class ApolloEnricher:
         persona: str, priority: str, source_url: str, is_creator: bool
     ):
         """Insert or update person record with Apollo enriched data."""
-        name = profile.get("name") or f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip()
+        fname = (profile.get("first_name") or "").strip()
+        lname = (profile.get("last_name") or "").strip()
+        if fname.lower() == "none": fname = ""
+        if lname.lower() == "none": lname = ""
+        raw_name = profile.get("name") or f"{fname} {lname}".strip()
+        if not raw_name or raw_name.lower() in ("none none", "none"):
+            cand_info = apollo_cache.get_all_candidates_list(search=apollo_id, limit=1)
+            cands = cand_info.get("candidates", [])
+            name = (cands[0].get("name") if cands else "") or fname or "Executive"
+        else:
+            name = raw_name
         title = profile.get("title") or "-"
         email = profile.get("email") or ""
         linkedin = profile.get("linkedin_url") or "-"
