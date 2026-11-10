@@ -717,7 +717,7 @@
     <div id="panePeople" class="tab-pane">
       <div id="peopleFilterBanner" style="display:none; margin-bottom:14px; padding:10px 16px; background:rgba(79, 70, 229, 0.15); border:1px solid var(--primary); border-radius:8px; font-size:13px; align-items:center; justify-content:space-between;">
         <span id="peopleFilterBannerText" style="color:#a5b4fc; font-weight:600;"></span>
-        <button class="btn" style="padding:4px 10px; font-size:11px;" onclick="clearPeopleEventFilter()">Clear Filter ✕</button>
+        <button class="btn" style="padding:4px 10px; font-size:11px;" onclick="clearCompanyFilter()">Clear Filter ✕</button>
       </div>
 
             <!-- Apollo Enrichment Controls (Improvement 1: Background Queue Worker) -->
@@ -1352,7 +1352,7 @@
     async function fetchPeople(offset = 0) {
       currentPeopleOffset = offset;
       const search = document.getElementById("peopleSearch") ? document.getElementById("peopleSearch").value.trim() : "";
-      const compDom = document.getElementById("peopleCompanyFilter") ? document.getElementById("peopleCompanyFilter").value : "all";
+      const compDom = (currentCompanyFilterDomain && currentCompanyFilterDomain !== "all") ? currentCompanyFilterDomain : (document.getElementById("peopleCompanyFilter") ? document.getElementById("peopleCompanyFilter").value : "all");
       const persona = document.getElementById("peoplePersonaFilter") ? document.getElementById("peoplePersonaFilter").value : "all";
       const status = document.getElementById("peopleStatusFilter") ? document.getElementById("peopleStatusFilter").value : "all";
       const tbody = document.getElementById("peopleTableBody");
@@ -1455,7 +1455,7 @@
 
     function exportPeopleCsv() {
       const search = document.getElementById("peopleSearch") ? document.getElementById("peopleSearch").value.trim() : "";
-      const compDom = document.getElementById("peopleCompanyFilter") ? document.getElementById("peopleCompanyFilter").value : "all";
+      const compDom = (currentCompanyFilterDomain && currentCompanyFilterDomain !== "all") ? currentCompanyFilterDomain : (document.getElementById("peopleCompanyFilter") ? document.getElementById("peopleCompanyFilter").value : "all");
       const persona = document.getElementById("peoplePersonaFilter") ? document.getElementById("peoplePersonaFilter").value : "all";
       const status = document.getElementById("peopleStatusFilter") ? document.getElementById("peopleStatusFilter").value : "all";
       let url = `/api/people?limit=5000&search=${encodeURIComponent(search)}&company_domain=${encodeURIComponent(compDom)}&persona=${encodeURIComponent(persona)}&status=${encodeURIComponent(status)}`;
@@ -1487,13 +1487,58 @@
       }
     }
 
-    function viewCompanyPeople(domain) {
+    let currentCompanyFilterDomain = "all";
+
+    function viewCompanyPeople(domain, companyName) {
       if (!domain) return;
+      currentCompanyFilterDomain = domain;
+      currentFilterEventId = null;
+
       const select = document.getElementById("peopleCompanyFilter");
       if (select) {
         select.value = domain;
       }
+
+      const banner = document.getElementById("peopleFilterBanner");
+      const bannerText = document.getElementById("peopleFilterBannerText");
+      if (banner && bannerText) {
+        banner.style.display = "flex";
+        bannerText.innerHTML = `🏢 Filtered to Company: <strong>${escapeHtml(companyName || domain)}</strong> (<code>${escapeHtml(domain)}</code>) &mdash; Showing company members only`;
+      }
+
       switchTab('people');
+      fetchPeople(0);
+    }
+
+    function onCompanySelectChange() {
+      const select = document.getElementById("peopleCompanyFilter");
+      currentCompanyFilterDomain = select ? select.value : "all";
+      const banner = document.getElementById("peopleFilterBanner");
+      const bannerText = document.getElementById("peopleFilterBannerText");
+
+      if (currentCompanyFilterDomain !== "all") {
+        const text = select.options[select.selectedIndex].text;
+        if (banner && bannerText) {
+          banner.style.display = "flex";
+          bannerText.innerHTML = `🏢 Filtered to Company: <strong>${escapeHtml(text)}</strong> &mdash; Showing company members only`;
+        }
+      } else {
+        if (banner) banner.style.display = "none";
+      }
+      fetchPeople(0);
+    }
+
+    function clearCompanyFilter() {
+      currentCompanyFilterDomain = "all";
+      currentFilterEventId = null;
+      const select = document.getElementById("peopleCompanyFilter");
+      if (select) {
+        select.value = "all";
+      }
+      const banner = document.getElementById("peopleFilterBanner");
+      if (banner) {
+        banner.style.display = "none";
+      }
       fetchPeople(0);
     }
 
@@ -1621,7 +1666,7 @@
             <td>
               <div style="display:flex; gap:6px; align-items:center;">
                 <button class="btn btn-primary" id="btnEnrichComp_${c.id}" style="padding:4px 8px; font-size:11px;" onclick="enrichCompanyRow(${c.id}, '${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="Find P1 & P2 leaders for 0 credits">⚡ Enrich (0c)</button>
-                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="viewCompanyPeople('${escapeHtml(c.domain || '')}')" title="View company leaders and creators in People tab">👥 People</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="viewCompanyPeople('${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="View company leaders and creators in People tab">👥 People</button>
               </div>
             </td>
           </tr>

@@ -1253,6 +1253,9 @@ def get_unified_people(
         if dom_clean != "all" and dom_clean != "":
             pg_conds.append("(LOWER(comp.domain) = %s OR LOWER(split_part(p.email, '@', 2)) = %s)")
             pg_params.extend([dom_clean, dom_clean])
+            # When filtering to a company, only include genuine named creators (not regional email inboxes or empty dashes)
+            if persona_filter != "creator":
+                pg_conds.append("p.is_creator_email = TRUE AND p.contact_name IS NOT NULL AND p.contact_name != '-' AND p.contact_name != ''")
 
         if search_clean:
             s = f"%{search_clean}%"
@@ -1278,8 +1281,14 @@ def get_unified_people(
             WHERE {' AND '.join(pg_conds)}
         """
         cur_pg.execute(sql, pg_params)
+        seen_creator_emails = set()
         for r in cur_pg.fetchall():
             row = dict(r)
+            em = (row.get("email") or "").lower().strip()
+            if em and em in seen_creator_emails:
+                continue
+            if em:
+                seen_creator_emails.add(em)
             creators.append({
                 "id": row["id"],
                 "contact_name": row["contact_name"] or "-",
