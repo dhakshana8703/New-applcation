@@ -875,9 +875,20 @@
         </div>
         <div class="pagination">
           <div id="companyPaginationInfo">Showing 0 of 0 companies</div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn" id="btnPrevCompanies" onclick="changeCompanyPage(-1)">← Previous</button>
-            <button class="btn" id="btnNextCompanies" onclick="changeCompanyPage(1)">Next →</button>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);">
+              <span>Show per page:</span>
+              <select id="companyPageSize" class="select-dropdown" style="padding: 4px 8px; font-size: 12px; font-weight:600;" onchange="changeCompanyPageSize(this.value)">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">All Companies</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn" id="btnPrevCompanies" onclick="changeCompanyPage(-1)">← Previous</button>
+              <button class="btn" id="btnNextCompanies" onclick="changeCompanyPage(1)">Next →</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1050,8 +1061,21 @@
       fetchEvents(0);
     }
 
+    function changeCompanyPageSize(size) {
+      if (size === "all") {
+        companyLimit = 10000;
+      } else {
+        companyLimit = parseInt(size) || 25;
+      }
+      fetchCompanies(0);
+    }
+
     function changePeoplePageSize(size) {
-      peopleLimit = parseInt(size) || 25;
+      if (size === "all") {
+        peopleLimit = 10000;
+      } else {
+        peopleLimit = parseInt(size) || 25;
+      }
       fetchPeople(0);
       checkApolloStatus();
     }
@@ -1397,9 +1421,14 @@
           personaBadge = `<span class="badge badge-neutral">${escapeHtml(p.persona)}</span>`;
         }
 
-        const emailChip = (p.email && p.email !== '-')
-          ? `<span class="email-chip" title="Click to copy: ${escapeHtml(p.email)}" onclick="navigator.clipboard.writeText('${escapeHtml(p.email)}'); alert('Copied email: ${escapeHtml(p.email)}');">${escapeHtml(p.email)}</span>`
-          : `<span style="color:var(--text-dim); font-size:12px; font-style:italic;">(Unlock to reveal)</span>`;
+        let emailChip = "";
+        if (p.email && p.email !== '-' && p.email.trim() !== '') {
+          emailChip = `<span class="email-chip" title="Click to copy: ${escapeHtml(p.email)}" onclick="navigator.clipboard.writeText('${escapeHtml(p.email)}'); alert('Copied email: ${escapeHtml(p.email)}');">${escapeHtml(p.email)}</span>`;
+        } else if (p.is_unlocked) {
+          emailChip = `<span class="badge badge-neutral" style="color:var(--text-muted); font-size:11px;" title="Apollo verified profile & LinkedIn, but has no email address on file">No email in Apollo (LinkedIn Verified)</span>`;
+        } else {
+          emailChip = `<span style="color:var(--text-dim); font-size:12px; font-style:italic;">(Unlock to reveal)</span>`;
+        }
 
         const linkedinDisplay = (p.linkedin_url && p.linkedin_url !== '-')
           ? `<a href="${p.linkedin_url}" target="_blank" style="color:#0ea5e9; font-weight:600;">LinkedIn ↗</a>`
