@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 15,
-  "last_updated": "2026-11-09T13:09:32.635922Z",
+  "total_credits_spent": 30,
+  "last_updated": "2026-11-10T04:21:02.943672Z",
   "breakdown": {
-    "match_creator": 3,
-    "enrich_organization": 6,
+    "match_creator": 7,
+    "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 6,
+    "unlock_work_email": 11,
     "search_persona_candidates": 0
   },
   "history": [
@@ -228,6 +228,246 @@
       "target": "lpresearch.org",
       "credits": 0,
       "cumulative_total": 15
+    },
+    {
+      "timestamp": "2026-11-09T13:40:44.806664Z",
+      "event_id": 3,
+      "event_name": "20th Regional Law Conference",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "oecsbar.com",
+      "credits": 0,
+      "cumulative_total": 15
+    },
+    {
+      "timestamp": "2026-11-09T13:40:48.878451Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "lhca.us",
+      "credits": 1,
+      "cumulative_total": 16
+    },
+    {
+      "timestamp": "2026-11-09T13:40:50.245936Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "lhca.us",
+      "credits": 0,
+      "cumulative_total": 16
+    },
+    {
+      "timestamp": "2026-11-09T13:40:51.319768Z",
+      "event_id": 4,
+      "event_name": "LHCA 7th Annual Meeting",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "603dd8e8f2ece4000145b52e",
+      "credits": 1,
+      "cumulative_total": 17
+    },
+    {
+      "timestamp": "2026-11-09T13:40:53.163608Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "justine.kalmar@msupply.com",
+      "credits": 1,
+      "cumulative_total": 18
+    },
+    {
+      "timestamp": "2026-11-09T13:40:54.159110Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "msupply.com",
+      "credits": 1,
+      "cumulative_total": 19
+    },
+    {
+      "timestamp": "2026-11-09T13:40:55.493007Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "msupply.com",
+      "credits": 0,
+      "cumulative_total": 19
+    },
+    {
+      "timestamp": "2026-11-09T13:40:57.147251Z",
+      "event_id": 5,
+      "event_name": "BellSimons Contractor Tradeshow & Vendor Expo",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f90044229f4e0001b29028",
+      "credits": 1,
+      "cumulative_total": 20
+    },
+    {
+      "timestamp": "2026-11-09T13:41:01.172231Z",
+      "event_id": 6,
+      "event_name": "IIA New Orleans Fall Newsletter",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "iiachaptercommunications.org",
+      "credits": 0,
+      "cumulative_total": 20
+    },
+    {
+      "timestamp": "2026-11-09T13:41:02.935430Z",
+      "event_id": 7,
+      "event_name": "IADMS 36th Annual Conference: Melbourne, Australia",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "sutton.anker@iadms.org",
+      "credits": 1,
+      "cumulative_total": 21
+    },
+    {
+      "timestamp": "2026-11-09T13:41:04.024573Z",
+      "event_id": 7,
+      "event_name": "IADMS 36th Annual Conference: Melbourne, Australia",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "iadms.org",
+      "credits": 1,
+      "cumulative_total": 22
+    },
+    {
+      "timestamp": "2026-11-09T13:41:05.107208Z",
+      "event_id": 7,
+      "event_name": "IADMS 36th Annual Conference: Melbourne, Australia",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "iadms.org",
+      "credits": 0,
+      "cumulative_total": 22
+    },
+    {
+      "timestamp": "2026-11-10T04:16:29.806679Z",
+      "event_id": 8,
+      "event_name": "Segmentation Workshop DACH | September-October 2026",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "sgerzina@akamai.com",
+      "credits": 1,
+      "cumulative_total": 23
+    },
+    {
+      "timestamp": "2026-11-10T04:16:30.899795Z",
+      "event_id": 8,
+      "event_name": "Segmentation Workshop DACH | September-October 2026",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "akamai.com",
+      "credits": 1,
+      "cumulative_total": 24
+    },
+    {
+      "timestamp": "2026-11-10T04:16:31.942068Z",
+      "event_id": 8,
+      "event_name": "Segmentation Workshop DACH | September-October 2026",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "akamai.com",
+      "credits": 0,
+      "cumulative_total": 24
+    },
+    {
+      "timestamp": "2026-11-10T04:16:33.232286Z",
+      "event_id": 8,
+      "event_name": "Segmentation Workshop DACH | September-October 2026",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "6acdd2008fb0a50001d1682c",
+      "credits": 1,
+      "cumulative_total": 25
+    },
+    {
+      "timestamp": "2026-11-10T04:16:35.642575Z",
+      "event_id": 9,
+      "event_name": "Chemical Recycling",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "cda@amiplastics.com",
+      "credits": 1,
+      "cumulative_total": 26
+    },
+    {
+      "timestamp": "2026-11-10T04:16:36.673735Z",
+      "event_id": 9,
+      "event_name": "Chemical Recycling",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "amiplastics.com",
+      "credits": 1,
+      "cumulative_total": 27
+    },
+    {
+      "timestamp": "2026-11-10T04:16:37.743778Z",
+      "event_id": 9,
+      "event_name": "Chemical Recycling",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "amiplastics.com",
+      "credits": 0,
+      "cumulative_total": 27
+    },
+    {
+      "timestamp": "2026-11-10T04:16:39.125451Z",
+      "event_id": 9,
+      "event_name": "Chemical Recycling",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54aa7f0874686908c8a15d07",
+      "credits": 1,
+      "cumulative_total": 28
+    },
+    {
+      "timestamp": "2026-11-10T04:20:58.528166Z",
+      "event_id": 10,
+      "event_name": "AARP Oregon and Senior Planet Navigating Medicare Resources Online  10.28.2026",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "aarp.org",
+      "credits": 0,
+      "cumulative_total": 28
+    },
+    {
+      "timestamp": "2026-11-10T04:21:00.524748Z",
+      "event_id": 11,
+      "event_name": "MI Space Forum",
+      "action": "enrich_organization",
+      "endpoint": "/organizations/enrich",
+      "target": "medc.cventevents.com",
+      "credits": 1,
+      "cumulative_total": 29
+    },
+    {
+      "timestamp": "2026-11-10T04:21:01.669761Z",
+      "event_id": 11,
+      "event_name": "MI Space Forum",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "medc.cventevents.com",
+      "credits": 0,
+      "cumulative_total": 29
+    },
+    {
+      "timestamp": "2026-11-10T04:21:02.943672Z",
+      "event_id": 11,
+      "event_name": "MI Space Forum",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f2ffd238ed3d0001f78b9c",
+      "credits": 1,
+      "cumulative_total": 30
     }
   ]
 }

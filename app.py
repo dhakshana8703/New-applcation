@@ -306,12 +306,12 @@ def api_test_url():
 
 
 # ==============================================================================
-# APOLLO ENRICHMENT API
+# APOLLO ENRICHMENT API (WITH BACKGROUND QUEUE WORKER)
 # ==============================================================================
 
 @app.route("/api/apollo/status", methods=["GET"])
 def api_apollo_status():
-    from apollo_enricher import ApolloEnricher
+    from apollo_enricher import ApolloEnricher, apollo_worker
     from credit_tracker import credit_tracker
     enricher = ApolloEnricher()
     key = os.environ.get("APOLLO_API_KEY", "").strip()
@@ -322,8 +322,51 @@ def api_apollo_status():
         "has_api_key": bool(key),
         "masked_key": masked,
         "total_credits_spent": summary.get("total_credits_spent", 0),
-        "breakdown": summary.get("breakdown", {})
+        "breakdown": summary.get("breakdown", {}),
+        "worker": apollo_worker.get_status()
     })
+
+
+@app.route("/api/apollo/start-batch", methods=["POST"])
+def api_apollo_start_batch():
+    """Starts background Apollo enrichment queue worker."""
+    from apollo_enricher import apollo_worker
+    payload = request.get_json() or {}
+    batch_size = int(payload.get("batch_size", 5))
+    credit_cap = payload.get("credit_cap")
+    if credit_cap is not None:
+        credit_cap = int(credit_cap)
+
+    success, message = apollo_worker.start_batch(batch_size=batch_size, credit_cap=credit_cap)
+    if success:
+        return jsonify({
+            "status": "started",
+            "message": message,
+            "batch_size": batch_size
+        })
+    else:
+        return jsonify({
+            "status": "already_running",
+            "message": message
+        }), 409
+
+
+@app.route("/api/apollo/batch-status", methods=["GET"])
+def api_apollo_batch_status():
+    """Polls real-time worker progress and credit expenditures."""
+    from apollo_enricher import apollo_worker
+    return jsonify(apollo_worker.get_status())
+
+
+@app.route("/api/apollo/stop-batch", methods=["POST"])
+def api_apollo_stop_batch():
+    """Sends graceful stop signal to active Apollo queue worker."""
+    from apollo_enricher import apollo_worker
+    stopped = apollo_worker.stop()
+    if stopped:
+        return jsonify({"status": "stopping", "message": "Stop signal sent to Apollo worker."})
+    else:
+        return jsonify({"status": "not_running", "message": "No active Apollo enrichment queue is running."})
 
 
 @app.route("/api/apollo/credit-log", methods=["GET"])

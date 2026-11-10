@@ -34,6 +34,7 @@ Safety & Senior Engineering Constraints:
 import os
 import re
 import time
+import threading
 import requests
 from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional, Tuple
@@ -331,11 +332,19 @@ class ApolloEnricher:
     # --------------------------------------------------------------------------
     # BATCH PROCESSOR WITH CHECKPOINT RESUMPTION & DOMAIN GUARDS
     # --------------------------------------------------------------------------
-    def enrich_event_batch(self, batch_size: int = 5, credit_cap: int = 20) -> Dict[str, Any]:
+    def enrich_event_batch(
+        self,
+        batch_size: int = 5,
+        credit_cap: int = 20,
+        progress_callback = None,
+        stop_check = None
+    ) -> Dict[str, Any]:
         """
         Runs Apollo enrichment for up to `batch_size` unenriched events.
         Automatically resumes from the next unenriched event using SQLite checkpoints.
         Enforces credit_cap so it never overspends.
+        Supports cooperative cancellation via stop_check() and progress updates.
+        Commits per event so no work is lost on restart or early stop.
         """
         conn = get_db_connection()
         cur = conn.cursor() if hasattr(conn, 'cursor') else conn
@@ -366,11 +375,16 @@ class ApolloEnricher:
 
         cur.execute(sql, (batch_size,))
         events = cur.fetchall()
+        total_events = len(events)
 
         results = []
         events_processed = 0
 
-        for ev in events:
+        for idx, ev in enumerate(events):
+            if stop_check and stop_check():
+                print(f"[Apollo] Stop requested. Halting batch gracefully.")
+                break
+
             if self.credits_spent >= credit_cap:
                 print(f"[Apollo] Credit cap ({credit_cap}) reached. Stopping batch.")
                 break
@@ -384,6 +398,15 @@ class ApolloEnricher:
 
             # Apply Domain Guard & Smart Fallback (Improvement 2)
             domain = extract_clean_company_domain(c_email, comp_domain, eurl)
+
+            if progress_callback:
+                progress_callback(
+                    processed=events_processed,
+                    total=total_events,
+                    current_event=ename,
+                    current_domain=domain,
+                    credits_batch=self.credits_spent
+                )
 
             event_summary = {
                 "event_id": eid,
@@ -405,6 +428,7 @@ class ApolloEnricher:
                         outreach_priority = COALESCE(NULLIF(outreach_priority, ''), '-')
                     WHERE event_id = %s
                 """, (eid,))
+                conn.commit()
                 event_summary["status"] = "dry_run_unconfigured"
                 apollo_cache.record_event_checkpoint(eid, domain, "-", "-", 0)
                 results.append(event_summary)
@@ -494,6 +518,9 @@ class ApolloEnricher:
             credits_used_this_event = self.credits_spent - credits_before
             event_summary["credits_used"] = credits_used_this_event
 
+            # Atomic commit per event to Neon DB
+            conn.commit()
+
             # Record persistent checkpoint to SQLite
             apollo_cache.record_event_checkpoint(
                 event_id=eid,
@@ -507,8 +534,16 @@ class ApolloEnricher:
             events_processed += 1
             time.sleep(0.5)  # Rate limiting safety
 
-        conn.commit()
         conn.close()
+
+        if progress_callback:
+            progress_callback(
+                processed=events_processed,
+                total=total_events,
+                current_event="Completed",
+                current_domain="",
+                credits_batch=self.credits_spent
+            )
 
         summary = credit_tracker.get_summary()
 
@@ -553,3 +588,131 @@ class ApolloEnricher:
             event_id, organizer, name, title, is_creator, phone, linkedin, email,
             source_url, persona, priority, apollo_id
         ))
+
+
+# ==============================================================================
+# BACKGROUND QUEUE WORKER (IMPROVEMENT 1)
+# ==============================================================================
+
+class ApolloBackgroundWorker:
+    """
+    Manages non-blocking asynchronous Apollo lead enrichment in a dedicated daemon thread.
+    Prevents HTTP gateway timeouts on Render and client browsers during large batches (10, 25, 50).
+    Provides real-time thread-safe status polling and graceful cancellation.
+    """
+    def __init__(self):
+        self._lock = threading.RLock()
+        self.is_running = False
+        self.should_stop = False
+        self.batch_size = 0
+        self.processed = 0
+        self.total = 0
+        self.current_event = ""
+        self.current_domain = ""
+        self.credits_spent_batch = 0
+        self.status_message = "Idle"
+        self.error = None
+        self.last_result = None
+
+    def get_status(self) -> Dict[str, Any]:
+        with self._lock:
+            from credit_tracker import credit_tracker
+            summary = credit_tracker.get_summary()
+            return {
+                "is_running": self.is_running,
+                "should_stop": self.should_stop,
+                "batch_size": self.batch_size,
+                "processed": self.processed,
+                "total": self.total,
+                "current_event": self.current_event,
+                "current_domain": self.current_domain,
+                "credits_spent_batch": self.credits_spent_batch,
+                "cumulative_credits_spent": summary.get("total_credits_spent", 0),
+                "status_message": self.status_message,
+                "error": self.error,
+                "last_result": self.last_result
+            }
+
+    def stop(self) -> bool:
+        with self._lock:
+            if self.is_running:
+                self.should_stop = True
+                self.status_message = "Stop signal received. Halting gracefully after current event..."
+                return True
+            return False
+
+    def start_batch(self, batch_size: int = 5, credit_cap: Optional[int] = None) -> Tuple[bool, str]:
+        with self._lock:
+            if self.is_running:
+                return False, "An Apollo enrichment batch is already actively running."
+
+            # Calculate safety credit cap (default: batch_size * 4 credits max)
+            cap = credit_cap if (credit_cap is not None and credit_cap > 0) else max(20, batch_size * 4)
+
+            self.is_running = True
+            self.should_stop = False
+            self.batch_size = batch_size
+            self.processed = 0
+            self.total = batch_size
+            self.current_event = "Initializing batch queue..."
+            self.current_domain = ""
+            self.credits_spent_batch = 0
+            self.status_message = f"Starting queue worker for {batch_size} events (Safety cap: {cap} credits)..."
+            self.error = None
+
+        thread = threading.Thread(
+            target=self._worker,
+            args=(batch_size, cap),
+            daemon=True
+        )
+        thread.start()
+        return True, "Enrichment worker started in background."
+
+    def _worker(self, batch_size: int, credit_cap: int):
+        try:
+            enricher = ApolloEnricher()
+
+            def _stop_check():
+                with self._lock:
+                    return self.should_stop
+
+            def _progress(processed, total, current_event, current_domain, credits_batch):
+                with self._lock:
+                    self.processed = processed
+                    self.total = total
+                    self.current_event = current_event
+                    self.current_domain = current_domain
+                    self.credits_spent_batch = credits_batch
+                    if current_event == "Completed":
+                        self.status_message = f"Enrichment completed for all {processed} events."
+                    else:
+                        step_num = min(processed + 1, total)
+                        dom_display = f" ({current_domain})" if current_domain else ""
+                        self.status_message = f"Enriching event {step_num}/{total}: {current_event[:35]}{dom_display}"
+
+            result = enricher.enrich_event_batch(
+                batch_size=batch_size,
+                credit_cap=credit_cap,
+                progress_callback=_progress,
+                stop_check=_stop_check
+            )
+
+            with self._lock:
+                self.last_result = result
+                p_count = result.get("events_processed", 0)
+                c_spent = result.get("total_credits_spent", 0)
+                self.processed = p_count
+                self.credits_spent_batch = c_spent
+                self.status_message = f"Batch finished! Enriched {p_count} events (Spent {c_spent} credits)."
+        except Exception as e:
+            with self._lock:
+                self.error = str(e)
+                self.status_message = f"Worker encountered error: {e}"
+        finally:
+            with self._lock:
+                self.is_running = False
+                self.should_stop = False
+
+
+# Global singleton worker instance
+apollo_worker = ApolloBackgroundWorker()

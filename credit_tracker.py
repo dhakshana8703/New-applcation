@@ -8,6 +8,8 @@ Maintains real-time audit files:
 import os
 import csv
 import json
+import time
+import threading
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -16,43 +18,48 @@ CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apollo_cred
 
 
 class CreditTracker:
-    """Thread-safe persistent usage and credit tracker."""
+    """Thread-safe persistent usage and credit tracker with file retry logic."""
 
     def __init__(self):
+        self._lock = threading.RLock()
         self._ensure_files()
 
     def _ensure_files(self):
-        # 1. Ensure JSON file exists
-        if not os.path.exists(JSON_PATH):
-            initial_state = {
-                "total_credits_spent": 0,
-                "last_updated": datetime.utcnow().isoformat() + "Z",
-                "breakdown": {
-                    "match_creator": 0,
-                    "enrich_organization": 0,
-                    "search_candidates": 0,
-                    "unlock_work_email": 0
-                },
-                "history": []
-            }
-            with open(JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(initial_state, f, indent=2)
+        with self._lock:
+            # 1. Ensure JSON file exists
+            if not os.path.exists(JSON_PATH):
+                initial_state = {
+                    "total_credits_spent": 0,
+                    "last_updated": datetime.utcnow().isoformat() + "Z",
+                    "breakdown": {
+                        "match_creator": 0,
+                        "enrich_organization": 0,
+                        "search_candidates": 0,
+                        "unlock_work_email": 0
+                    },
+                    "history": []
+                }
+                with open(JSON_PATH, "w", encoding="utf-8") as f:
+                    json.dump(initial_state, f, indent=2)
 
-        # 2. Ensure CSV file exists with headers
-        if not os.path.exists(CSV_PATH):
-            with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "Timestamp", "Event ID", "Event Name", "Action",
-                    "Endpoint", "Target", "Credits Spent", "Cumulative Total"
-                ])
+            # 2. Ensure CSV file exists with headers
+            if not os.path.exists(CSV_PATH):
+                with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        "Timestamp", "Event ID", "Event Name", "Action",
+                        "Endpoint", "Target", "Credits Spent", "Cumulative Total"
+                    ])
 
     def get_summary(self) -> Dict[str, Any]:
         """Read current credit usage summary."""
-        try:
-            with open(JSON_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
+        with self._lock:
+            for _ in range(3):
+                try:
+                    with open(JSON_PATH, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    time.sleep(0.05)
             return {
                 "total_credits_spent": 0,
                 "last_updated": datetime.utcnow().isoformat() + "Z",
@@ -73,59 +80,64 @@ class CreditTracker:
         Record a credit expenditure, append to CSV audit log, update JSON,
         and return the new cumulative total.
         """
-        timestamp = datetime.utcnow().isoformat() + "Z"
-        data = self.get_summary()
+        with self._lock:
+            timestamp = datetime.utcnow().isoformat() + "Z"
+            data = self.get_summary()
 
-        data["total_credits_spent"] = data.get("total_credits_spent", 0) + credits
-        data["last_updated"] = timestamp
+            data["total_credits_spent"] = data.get("total_credits_spent", 0) + credits
+            data["last_updated"] = timestamp
 
-        breakdown = data.get("breakdown", {})
-        breakdown[action] = breakdown.get(action, 0) + credits
-        data["breakdown"] = breakdown
+            breakdown = data.get("breakdown", {})
+            breakdown[action] = breakdown.get(action, 0) + credits
+            data["breakdown"] = breakdown
 
-        entry = {
-            "timestamp": timestamp,
-            "event_id": event_id,
-            "event_name": event_name,
-            "action": action,
-            "endpoint": endpoint,
-            "target": target,
-            "credits": credits,
-            "cumulative_total": data["total_credits_spent"]
-        }
+            entry = {
+                "timestamp": timestamp,
+                "event_id": event_id,
+                "event_name": event_name,
+                "action": action,
+                "endpoint": endpoint,
+                "target": target,
+                "credits": credits,
+                "cumulative_total": data["total_credits_spent"]
+            }
 
-        # Keep last 1000 history entries in JSON to prevent bloat
-        history = data.get("history", [])
-        history.append(entry)
-        if len(history) > 1000:
-            history = history[-1000:]
-        data["history"] = history
+            # Keep last 1000 history entries in JSON to prevent bloat
+            history = data.get("history", [])
+            history.append(entry)
+            if len(history) > 1000:
+                history = history[-1000:]
+            data["history"] = history
 
-        # Update JSON
-        try:
-            with open(JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            print(f"[CreditTracker] Failed to write JSON: {e}")
+            # Update JSON with retry
+            for _ in range(3):
+                try:
+                    with open(JSON_PATH, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+                    break
+                except Exception:
+                    time.sleep(0.1)
 
-        # Append to CSV audit log
-        try:
-            with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    timestamp,
-                    event_id,
-                    event_name,
-                    action,
-                    endpoint,
-                    target,
-                    credits,
-                    data["total_credits_spent"]
-                ])
-        except Exception as e:
-            print(f"[CreditTracker] Failed to write CSV: {e}")
+            # Append to CSV audit log with retry
+            for _ in range(3):
+                try:
+                    with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([
+                            timestamp,
+                            event_id,
+                            event_name,
+                            action,
+                            endpoint,
+                            target,
+                            credits,
+                            data["total_credits_spent"]
+                        ])
+                    break
+                except Exception:
+                    time.sleep(0.1)
 
-        return data["total_credits_spent"]
+            return data["total_credits_spent"]
 
 
 # Global tracker instance

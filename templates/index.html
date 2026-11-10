@@ -719,28 +719,55 @@
         <button class="btn" style="padding:4px 10px; font-size:11px;" onclick="clearPeopleEventFilter()">Clear Filter ✕</button>
       </div>
 
-            <!-- Apollo Enrichment Controls -->
-      <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">⚡</span>
-          <div>
-            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;">Apollo Lead Enrichment Engine</div>
-            <div style="font-size: 12px; color: var(--text-muted);">
-              Enriches Decision-Makers (P1) &amp; Operational Buyers (P2) with 0-credit search guards. Safe batch testing.
+            <!-- Apollo Enrichment Controls (Improvement 1: Background Queue Worker) -->
+      <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px;">⚡</span>
+            <div>
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;">Apollo Lead Enrichment Engine <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 8px; border-radius: 10px; margin-left: 6px; font-weight: normal;">Queue Worker v2.0</span></div>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                Enriches Decision-Makers (P1) &amp; Operational Buyers (P2) with 0-credit search guards. Non-blocking background worker.
+              </div>
             </div>
           </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button class="btn" onclick="promptApolloKey()" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);">
+              🔑 <span id="apolloKeyBtnText">Set Apollo Key</span>
+            </button>
+            <a href="/api/apollo/credit-log" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;" title="Download live CSV credit expenditure audit log">
+              📊 Credit Log (CSV)
+            </a>
+            <select id="apolloBatchSize" class="select-dropdown" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.2); color: #fff;">
+              <option value="5" selected>5 Events (Fast Test)</option>
+              <option value="10">10 Events</option>
+              <option value="25">25 Events</option>
+              <option value="50">50 Events (Large Batch)</option>
+            </select>
+            <button class="btn btn-primary" id="btnRunApolloBatch" onclick="startApolloBatch()" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600; padding: 6px 14px; font-size: 12px;">
+              🚀 Start Batch Queue
+            </button>
+            <button class="btn" id="btnStopApolloBatch" onclick="stopApolloBatch()" style="display: none; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-weight: 600; padding: 6px 12px; font-size: 12px;">
+              🛑 Stop
+            </button>
+          </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <button class="btn" onclick="promptApolloKey()" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);">
-            🔑 <span id="apolloKeyBtnText">Set Apollo Key</span>
-          </button>
-          <a href="/api/apollo/credit-log" target="_blank" class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); text-decoration: none; color: inherit;" title="Download live CSV credit expenditure audit log">
-            📊 Credit Log (CSV)
-          </a>
-          <span id="apolloBatchStatus" style="font-size: 12px; color: var(--text-muted);">Ready (Safety cap: 20 credits)</span>
-          <button class="btn btn-primary" id="btnRunApolloBatch" onclick="runApolloBatch(5)" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); font-weight: 600;">
-            🚀 Run Batch (First 5 Events)
-          </button>
+
+        <!-- Real-Time Progress Bar & Worker Telemetry -->
+        <div id="apolloProgressContainer" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(14, 165, 233, 0.15);">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px;">
+            <span id="apolloWorkerStatusText" style="color: #bae6fd; font-weight: 500;">Starting queue worker...</span>
+            <span id="apolloWorkerProgressPercent" style="color: #38bdf8; font-weight: 700;">0%</span>
+          </div>
+          <div style="width: 100%; height: 7px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+            <div id="apolloProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8); transition: width 0.4s ease; border-radius: 4px;"></div>
+          </div>
+        </div>
+
+        <!-- Status Summary Bar -->
+        <div id="apolloStatusSubBar" style="margin-top: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+          <span id="apolloBatchStatus">Checking status...</span>
+          <span id="apolloBatchCreditLive" style="font-size: 11px; opacity: 0.85;"></span>
         </div>
       </div>
       <div class="toolbar">
@@ -1619,7 +1646,9 @@
         .replace(/'/g, "&#039;");
     }
 
-        async function checkApolloStatus() {
+        let apolloPollTimer = null;
+
+    async function checkApolloStatus() {
       try {
         const res = await fetch("/api/apollo/status");
         const data = await res.json();
@@ -1628,10 +1657,18 @@
         const spent = data.total_credits_spent || 0;
         if (data.has_api_key) {
           btnText.innerText = `Key: ${data.masked_key}`;
-          statusSpan.innerHTML = `<span style="color:#10b981; font-weight:600;">● Live Key Connected</span> | 💳 <strong>${spent}</strong> credits spent`;
+          statusSpan.innerHTML = `<span style="color:#10b981; font-weight:600;">● Live Key Connected</span> | 💳 <strong>${spent}</strong> cumulative credits spent`;
         } else {
           btnText.innerText = "Set Apollo Key";
           statusSpan.innerHTML = `<span style="color:#f59e0b;">● Dry-Run Mode</span> | 💳 <strong>${spent}</strong> credits spent`;
+        }
+
+        // Auto-resume background worker UI if a batch is already running
+        if (data.worker && data.worker.is_running) {
+          updateWorkerUI(data.worker);
+          if (!apolloPollTimer) {
+            apolloPollTimer = setInterval(pollApolloWorker, 1200);
+          }
         }
       } catch (e) {}
     }
@@ -1657,32 +1694,124 @@
       }
     }
 
-    async function runApolloBatch(batchSize = 5) {
-      const btn = document.getElementById("btnRunApolloBatch");
-      const statusSpan = document.getElementById("apolloBatchStatus");
-      if (!confirm(`Run Apollo Lead Enrichment for the next ${batchSize} events?\n\n• Uses 0-credit candidate search\n• Max safety cap: 20 credits\n• Skips already enriched contacts\n• Default values initialized to '-'`)) {
+    async function startApolloBatch() {
+      const batchSizeSelect = document.getElementById("apolloBatchSize");
+      const batchSize = parseInt(batchSizeSelect ? batchSizeSelect.value : 5) || 5;
+
+      if (!confirm(`Launch background Apollo enrichment queue for the next ${batchSize} events?\n\n• Runs asynchronously in background (no HTTP timeout!)\n• Uses 0-credit candidate search\n• Max safety cap: ${batchSize * 4} credits\n• SQLite checkpoint resumption\n• Skips already enriched contacts\n• Commits per event to prevent data loss`)) {
         return;
       }
-      btn.disabled = true;
-      btn.innerHTML = `⏳ Running Batch (${batchSize} Events)...`;
-      statusSpan.innerText = "Executing Apollo algorithm...";
+
+      const btnRun = document.getElementById("btnRunApolloBatch");
+      const btnStop = document.getElementById("btnStopApolloBatch");
+      const progressBox = document.getElementById("apolloProgressContainer");
+      const pBar = document.getElementById("apolloProgressBar");
+      const pText = document.getElementById("apolloWorkerStatusText");
+      const pPercent = document.getElementById("apolloWorkerProgressPercent");
+
+      btnRun.disabled = true;
+      btnStop.style.display = "inline-block";
+      btnStop.disabled = false;
+      btnStop.innerText = "🛑 Stop";
+      progressBox.style.display = "block";
+      pBar.style.width = "5%";
+      pBar.style.background = "linear-gradient(90deg, #0284c7, #38bdf8)";
+      pPercent.innerText = "0%";
+      pText.innerText = `Submitting batch request for ${batchSize} events...`;
 
       try {
-        const res = await fetch("/api/apollo/enrich-batch", {
+        const res = await fetch("/api/apollo/start-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ batch_size: batchSize, credit_cap: 20 })
+          body: JSON.stringify({ batch_size: batchSize })
         });
         const data = await res.json();
-        btn.disabled = false;
-        btn.innerHTML = `🚀 Run Batch (Next ${batchSize} Events)`;
-        statusSpan.innerText = `Done! Processed ${data.events_processed} events (Credits spent: ${data.total_credits_spent})`;
-        alert(`Apollo Batch Complete!\n\nEvents Processed: ${data.events_processed}\nTotal Credits Spent: ${data.total_credits_spent}\n\nCheck People table for updated P1/P2 candidates.`);
+        if (res.ok) {
+          pText.innerText = `Queue started for ${batchSize} events. Running in background...`;
+          if (!apolloPollTimer) {
+            apolloPollTimer = setInterval(pollApolloWorker, 1200);
+          }
+        } else {
+          alert("Notice: " + (data.message || data.error || "Could not start queue"));
+          btnRun.disabled = false;
+          btnStop.style.display = "none";
+        }
       } catch (err) {
-        btn.disabled = false;
-        btn.innerHTML = `🚀 Run Batch (${batchSize} Events)`;
-        statusSpan.innerText = `Error: ${err.message}`;
-        alert(`Error executing batch: ${err.message}`);
+        alert("Network error starting queue: " + err.message);
+        btnRun.disabled = false;
+        btnStop.style.display = "none";
+      }
+    }
+
+    async function stopApolloBatch() {
+      const btnStop = document.getElementById("btnStopApolloBatch");
+      btnStop.disabled = true;
+      btnStop.innerText = "⏳ Halting...";
+      try {
+        const res = await fetch("/api/apollo/stop-batch", { method: "POST" });
+        const data = await res.json();
+        const pText = document.getElementById("apolloWorkerStatusText");
+        pText.innerText = data.message || "Stopping worker after current event...";
+      } catch (err) {
+        alert("Error stopping worker: " + err.message);
+      }
+    }
+
+    function updateWorkerUI(worker) {
+      const btnRun = document.getElementById("btnRunApolloBatch");
+      const btnStop = document.getElementById("btnStopApolloBatch");
+      const progressBox = document.getElementById("apolloProgressContainer");
+      const pBar = document.getElementById("apolloProgressBar");
+      const pText = document.getElementById("apolloWorkerStatusText");
+      const pPercent = document.getElementById("apolloWorkerProgressPercent");
+      const creditLive = document.getElementById("apolloBatchCreditLive");
+
+      if (!worker) return;
+
+      if (worker.is_running) {
+        btnRun.disabled = true;
+        btnStop.style.display = "inline-block";
+        progressBox.style.display = "block";
+
+        const total = worker.total || worker.batch_size || 1;
+        const processed = worker.processed || 0;
+        const pct = Math.min(100, Math.round((processed / total) * 100));
+
+        pBar.style.width = Math.max(pct, 5) + "%";
+        pBar.style.background = "linear-gradient(90deg, #0284c7, #38bdf8)";
+        pPercent.innerText = pct + "%";
+        pText.innerText = worker.status_message || `Processing ${processed}/${total} events...`;
+        creditLive.innerHTML = `⚡ Batch credits: <strong>${worker.credits_spent_batch || 0}</strong> | Total: <strong>${worker.cumulative_credits_spent || 0}</strong>`;
+      } else {
+        btnRun.disabled = false;
+        btnStop.style.display = "none";
+        if (worker.last_result || (worker.status_message && worker.status_message !== "Idle")) {
+          progressBox.style.display = "block";
+          pBar.style.width = "100%";
+          pBar.style.background = "#10b981";
+          pPercent.innerText = "100%";
+          pText.innerText = worker.status_message || "Batch complete.";
+          creditLive.innerHTML = `⚡ Batch credits: <strong>${worker.credits_spent_batch || 0}</strong> | Total: <strong>${worker.cumulative_credits_spent || 0}</strong>`;
+        }
+      }
+    }
+
+    async function pollApolloWorker() {
+      try {
+        const res = await fetch("/api/apollo/batch-status");
+        const worker = await res.json();
+        updateWorkerUI(worker);
+
+        if (!worker.is_running) {
+          if (apolloPollTimer) {
+            clearInterval(apolloPollTimer);
+            apolloPollTimer = null;
+          }
+          checkApolloStatus();
+          fetchPeople(0); // Auto-refresh People table with newly enriched contacts!
+        }
+      } catch (err) {
+        console.error("Apollo status poll error:", err);
       }
     }
   </script>

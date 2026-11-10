@@ -21,3 +21,26 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-09T13:09:29.452031Z,2,2026 LPRC Aerial Overwatch Drone Summit,match_creator,/people/bulk_match,hannah@lpresearch.org,1,14
 2026-11-09T13:09:31.116414Z,2,2026 LPRC Aerial Overwatch Drone Summit,enrich_organization,/organizations/enrich,lpresearch.org,1,15
 2026-11-09T13:09:32.635922Z,2,2026 LPRC Aerial Overwatch Drone Summit,search_persona_candidates,/mixed_people/api_search,lpresearch.org,0,15
+2026-11-09T13:40:44.806664Z,3,20th Regional Law Conference,search_persona_candidates,/mixed_people/api_search,oecsbar.com,0,15
+2026-11-09T13:40:48.878451Z,4,LHCA 7th Annual Meeting,enrich_organization,/organizations/enrich,lhca.us,1,16
+2026-11-09T13:40:50.245936Z,4,LHCA 7th Annual Meeting,search_persona_candidates,/mixed_people/api_search,lhca.us,0,16
+2026-11-09T13:40:51.319768Z,4,LHCA 7th Annual Meeting,unlock_work_email,/people/match,603dd8e8f2ece4000145b52e,1,17
+2026-11-09T13:40:53.163608Z,5,BellSimons Contractor Tradeshow & Vendor Expo,match_creator,/people/bulk_match,justine.kalmar@msupply.com,1,18
+2026-11-09T13:40:54.159110Z,5,BellSimons Contractor Tradeshow & Vendor Expo,enrich_organization,/organizations/enrich,msupply.com,1,19
+2026-11-09T13:40:55.493007Z,5,BellSimons Contractor Tradeshow & Vendor Expo,search_persona_candidates,/mixed_people/api_search,msupply.com,0,19
+2026-11-09T13:40:57.147251Z,5,BellSimons Contractor Tradeshow & Vendor Expo,unlock_work_email,/people/match,66f90044229f4e0001b29028,1,20
+2026-11-09T13:41:01.172231Z,6,IIA New Orleans Fall Newsletter,search_persona_candidates,/mixed_people/api_search,iiachaptercommunications.org,0,20
+2026-11-09T13:41:02.935430Z,7,"IADMS 36th Annual Conference: Melbourne, Australia",match_creator,/people/bulk_match,sutton.anker@iadms.org,1,21
+2026-11-09T13:41:04.024573Z,7,"IADMS 36th Annual Conference: Melbourne, Australia",enrich_organization,/organizations/enrich,iadms.org,1,22
+2026-11-09T13:41:05.107208Z,7,"IADMS 36th Annual Conference: Melbourne, Australia",search_persona_candidates,/mixed_people/api_search,iadms.org,0,22
+2026-11-10T04:16:29.806679Z,8,Segmentation Workshop DACH | September-October 2026,match_creator,/people/bulk_match,sgerzina@akamai.com,1,23
+2026-11-10T04:16:31.942068Z,8,Segmentation Workshop DACH | September-October 2026,search_persona_candidates,/mixed_people/api_search,akamai.com,0,24
+2026-11-10T04:16:33.232286Z,8,Segmentation Workshop DACH | September-October 2026,unlock_work_email,/people/match,6acdd2008fb0a50001d1682c,1,25
+2026-11-10T04:16:35.642575Z,9,Chemical Recycling,match_creator,/people/bulk_match,cda@amiplastics.com,1,26
+2026-11-10T04:16:36.673735Z,9,Chemical Recycling,enrich_organization,/organizations/enrich,amiplastics.com,1,27
+2026-11-10T04:16:37.743778Z,9,Chemical Recycling,search_persona_candidates,/mixed_people/api_search,amiplastics.com,0,27
+2026-11-10T04:16:39.125451Z,9,Chemical Recycling,unlock_work_email,/people/match,54aa7f0874686908c8a15d07,1,28
+2026-11-10T04:20:58.528166Z,10,AARP Oregon and Senior Planet Navigating Medicare Resources Online  10.28.2026,search_persona_candidates,/mixed_people/api_search,aarp.org,0,28
+2026-11-10T04:21:00.524748Z,11,MI Space Forum,enrich_organization,/organizations/enrich,medc.cventevents.com,1,29
+2026-11-10T04:21:01.669761Z,11,MI Space Forum,search_persona_candidates,/mixed_people/api_search,medc.cventevents.com,0,29
+2026-11-10T04:21:02.943672Z,11,MI Space Forum,unlock_work_email,/people/match,66f2ffd238ed3d0001f78b9c,1,30

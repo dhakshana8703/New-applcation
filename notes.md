@@ -1,6 +1,6 @@
 # Nunify Outbound Tool — Cvent Scraper & Apollo Enrichment Engine
 > **Project Status & Engineering Changelog**  
-> *Last Updated: November 9, 2026*  
+> *Last Updated: November 10, 2026*  
 > *Maintained for: Engineering Team & Management*
 
 ---
@@ -53,7 +53,7 @@ All enriched contacts strictly map to the 10 target fields specified for the out
 ### ✅ Improvement 3: Persistent SQLite Caching & Checkpoint Recovery (`cvent_cache.db`)
 * **Problem:** If the server reboots or crashes, you should never have to re-enrich from scratch or pay twice for the same company.
 * **Solution:**
-  1. **`apollo_org_cache`:** Saves company domains locally. Multiple events from the same company cost 0 additional credits.
+  1. **`apollo_org_cache`:** Saves company domains locally. Multiple events from the same company cost 0 additional credits (e.g., AARP's multiple events reused 1 lookup).
   2. **`apollo_people_cache`:** Caches every unlocked contact permanently.
   3. **`apollo_event_checkpoints`:** Tracks which event IDs have been completed. When clicking *"Run Batch"*, the system automatically resumes from the next unenriched event.
 
@@ -65,6 +65,7 @@ All enriched contacts strictly map to the 10 target fields specified for the out
   1. Built **`apollo_credit_usage.csv`**: A live spreadsheet recording timestamp, event name, endpoint called, target looked up, and running credit total.
   2. Built **`apollo_credit_usage.json`**: Machine-readable state file storing action breakdown.
   3. Added a live counter on the dashboard UI with a direct **`📊 Credit Log (CSV)`** download button.
+  4. Added re-entrant lock handling (`threading.RLock`) with automatic retry loops to prevent file contention on Windows.
 
 ---
 
@@ -76,24 +77,45 @@ All enriched contacts strictly map to the 10 target fields specified for the out
 
 ### ✅ Improvement 6: Non-Destructive Ingestion (Original Emails Preserved)
 * The original creator emails scraped from Cvent (`equinlivan@aarp.org`, `matt@lhca.us`, `justine.kalmar@msupply.com`) are **100% preserved** in the database.
+* When a creator is an operational coordinator, their real title is retrieved and priority is marked `Not Selected`.
 * Newly discovered executives are added as separate rows under the same event, giving sales reps both the event builder and the executive decision-maker.
+
+---
+
+### ✅ Improvement 7: Asynchronous Background Queue Worker & Real-Time Telemetry (v2.0)
+* **Problem:** Running large batches (10, 25, 50 events) in a synchronous HTTP request triggered gateway timeouts (504 Gateway Timeout on Render/reverse proxies and browser drops after 30–60 seconds).
+* **Solution:**
+  1. Built **`ApolloBackgroundWorker`**: A dedicated daemon thread runner in `apollo_enricher.py` with thread-safe telemetry (`processed`, `total`, `current_event`, `current_domain`, `credits_spent_batch`).
+  2. Implemented non-blocking API endpoints:
+     * `POST /api/apollo/start-batch`: Returns `<50ms` confirmation and launches queue.
+     * `GET /api/apollo/batch-status`: Real-time polling endpoint (polled every 1.2s by dashboard).
+     * `POST /api/apollo/stop-batch`: Cooperative cancellation that cleanly finishes the active event and stops.
+  3. Added batch size selector dropdown on dashboard: `5 Events`, `10 Events`, `25 Events`, `50 Events`.
+  4. Built real-time animated gradient progress bar (`0%` to `100%`) showing active event and live credit burn.
+  5. Implemented **atomic per-event DB commits**: Even if the server stops or the user cancels, every processed event is committed immediately with zero data loss.
+  6. Added page reload auto-resume: If the user reloads the dashboard while a queue is running, the progress bar and polling automatically resume.
 
 ---
 
 ## 4. Live Verification Output
 
-Testing with real Cvent events verified that the engine successfully extracts real decision-makers:
+Live testing with verified Cvent events confirms the engine successfully identifies and extracts verified decision-makers:
 
 | Enriched Contact | Real Job Title | Organization | Work Email | Persona & Priority |
 | :--- | :--- | :--- | :--- | :---: |
 | **Scott Frisch** | EVP, Chief Operating Officer & CFO | AARP | `sfrisch@aarp.org` | **P1 / Primary** |
 | **Kevin Latner** | Senior Vice President | US Leather | `kevin@usleather.org` | **P1 / Primary** |
 | **Chris McAllister** | Vice President Sourcing | Marcone | `chris.mcallister@marcone.com` | **P1 / Primary** |
+| **Jennie Bryan** | Regional Vice President | MSupply | `jennie.bryan@msupply.com` | **P1 / Primary** |
+| **Tom Leighton** | Co-founder & CEO | Akamai Technologies | `ftl@akamai.com` | **P1 / Primary** |
+| **Reggie Aggarwal** | CEO & Founder | Cvent / MEDC | `raggarwal@cvent.com` | **P1 / Primary** |
+
+*All runs strictly obeyed the 0-credit search step before unlocking work emails.*
 
 ---
 
 ## 5. Upcoming Engineering Roadmap
 
-* [ ] **Background Asynchronous Worker:** Decouple batch runs into background worker threads so batches of 50+ events run without HTTP timeouts.
+* [x] **Background Asynchronous Worker:** Decouple batch runs into background worker threads so batches of 50+ events run without HTTP timeouts. *(Completed in Improvement 7)*
 * [ ] **Weighted Title Priority Scoring:** Rank event-specific executives (`VP of Events`) higher than generic corporate officers (`CEO`).
 * [ ] **Outbound CRM Integration:** Add a direct 1-click webhook to push Primary leads into Smartlead / Instantly / HubSpot.
