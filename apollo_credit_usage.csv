@@ -44,3 +44,6 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T04:21:00.524748Z,11,MI Space Forum,enrich_organization,/organizations/enrich,medc.cventevents.com,1,29
 2026-11-10T04:21:01.669761Z,11,MI Space Forum,search_persona_candidates,/mixed_people/api_search,medc.cventevents.com,0,29
 2026-11-10T04:21:02.943672Z,11,MI Space Forum,unlock_work_email,/people/match,66f2ffd238ed3d0001f78b9c,1,30
+2026-11-10T04:30:17.485164Z,12,2026 DAIS Partner Conference,match_creator,/people/bulk_match,ellie.nielsen@amwins.com,1,31
+2026-11-10T04:30:18.524903Z,12,2026 DAIS Partner Conference,search_persona_candidates,/mixed_people/api_search,amwins.com,0,31
+2026-11-10T04:30:19.865006Z,12,2026 DAIS Partner Conference,unlock_work_email,/people/match,66ed70871645090001b49d9d,1,32

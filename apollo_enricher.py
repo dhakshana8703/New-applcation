@@ -444,15 +444,10 @@ class ApolloEnricher:
             creator_title = creator_profile.get("title", "") if creator_profile else ""
             creator_persona = classify_title(creator_title)
 
-            # Step 2: Identify Organization (Skipped if no corporate domain exists)
-            org_id = ""
-            if domain:
-                org_info = self.enrich_organization(domain, event_id=eid, event_name=ename)
-                if org_info:
-                    org_id = org_info.get("id", "")
-
-            # Step 3: Free 0-credit search for P1 and P2 candidates
-            candidates = self.search_persona_candidates(org_id, domain, event_id=eid, event_name=ename) if domain else []
+            # Step 2: Skip /organizations/enrich (Saves 1 credit per event!)
+            # We already have company info from Cvent scraping; mixed_people/api_search
+            # queries Apollo directly using q_organization_domains for 0 credits.
+            candidates = self.search_persona_candidates("", domain, event_id=eid, event_name=ename) if domain else []
 
             p1_candidate = None
             p2_candidate = None

@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 30,
-  "last_updated": "2026-11-10T04:21:02.943672Z",
+  "total_credits_spent": 32,
+  "last_updated": "2026-11-10T04:30:19.865006Z",
   "breakdown": {
-    "match_creator": 7,
+    "match_creator": 8,
     "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 11,
+    "unlock_work_email": 12,
     "search_persona_candidates": 0
   },
   "history": [
@@ -468,6 +468,36 @@
       "target": "66f2ffd238ed3d0001f78b9c",
       "credits": 1,
       "cumulative_total": 30
+    },
+    {
+      "timestamp": "2026-11-10T04:30:17.485164Z",
+      "event_id": 12,
+      "event_name": "2026 DAIS Partner Conference",
+      "action": "match_creator",
+      "endpoint": "/people/bulk_match",
+      "target": "ellie.nielsen@amwins.com",
+      "credits": 1,
+      "cumulative_total": 31
+    },
+    {
+      "timestamp": "2026-11-10T04:30:18.524903Z",
+      "event_id": 12,
+      "event_name": "2026 DAIS Partner Conference",
+      "action": "search_persona_candidates",
+      "endpoint": "/mixed_people/api_search",
+      "target": "amwins.com",
+      "credits": 0,
+      "cumulative_total": 31
+    },
+    {
+      "timestamp": "2026-11-10T04:30:19.865006Z",
+      "event_id": 12,
+      "event_name": "2026 DAIS Partner Conference",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66ed70871645090001b49d9d",
+      "credits": 1,
+      "cumulative_total": 32
     }
   ]
 }
