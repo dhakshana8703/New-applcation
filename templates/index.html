@@ -1218,6 +1218,13 @@
         document.getElementById("statTotalCompanies").innerText = Number(data.companies.total).toLocaleString();
         document.getElementById("tabBadgeCompanies").innerText = data.companies.total;
 
+        try {
+          const cRes = await fetch("/api/apollo/candidates?limit=1");
+          const cData = await cRes.json();
+          const badgeCand = document.getElementById("tabBadgeCandidates");
+          if (badgeCand) badgeCand.innerText = (cData.total || 0).toLocaleString();
+        } catch (ce) {}
+
         document.getElementById("statLatestScrape").innerText = `Latest scrape: ${data.events.latest_scrape}`;
       } catch (e) {
         console.error("Error fetching stats:", e);
