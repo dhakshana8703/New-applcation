@@ -1526,6 +1526,22 @@ def init_user_tables():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_uca_user_id ON cvent_user_company_assignments(user_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_uca_company_id ON cvent_user_company_assignments(company_id);")
 
+    # Table 3: User Credit Expenditure & Unlock Audit Trail
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cvent_credit_transactions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES cvent_users(id) ON DELETE SET NULL,
+            username VARCHAR(100) DEFAULT '',
+            action VARCHAR(50) NOT NULL,
+            target_name VARCHAR(200) DEFAULT '',
+            company_domain VARCHAR(150) DEFAULT '',
+            apollo_id VARCHAR(100) DEFAULT '',
+            credits_spent INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_cct_user_id ON cvent_credit_transactions(user_id);")
+
     # Seed default admin if none exists
     cur.execute("SELECT id FROM cvent_users WHERE role = 'admin' LIMIT 1")
     admin_row = cur.fetchone()
@@ -1599,37 +1615,42 @@ def authenticate_user(username: str, password: str) -> dict:
         return {"error": "This user account is deactivated"}
     if not check_password_hash(d["password_hash"], password):
         return {"error": "Invalid username or password"}
-    del d["password_hash"]
-    return d
+    return get_user_by_id(d["id"])
 
 
 def get_user_by_id(user_id: int) -> dict:
-    """Get user details by ID."""
+    """Get user details by ID including assigned company count and credits spent."""
     if not user_id:
         return None
     conn = get_connection()
     cur = conn.cursor() if hasattr(conn, "cursor") else conn
     cur.execute("""
-        SELECT id, username, full_name, role, is_active, created_at
-        FROM cvent_users
-        WHERE id = %s
+        SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.created_at,
+               COUNT(DISTINCT uca.company_id) as assigned_companies_count,
+               COALESCE((SELECT SUM(credits_spent) FROM cvent_credit_transactions WHERE user_id = u.id), 0) as credits_spent
+        FROM cvent_users u
+        LEFT JOIN cvent_user_company_assignments uca ON uca.user_id = u.id
+        WHERE u.id = %s
+        GROUP BY u.id
     """, (user_id,))
     row = cur.fetchone()
     conn.close()
     if not row:
         return None
     return dict(row) if hasattr(row, "keys") else {
-        "id": row[0], "username": row[1], "full_name": row[2], "role": row[3], "is_active": row[4], "created_at": row[5]
+        "id": row[0], "username": row[1], "full_name": row[2], "role": row[3], "is_active": row[4], "created_at": row[5],
+        "assigned_companies_count": row[6], "credits_spent": int(row[7] or 0)
     }
 
 
 def get_all_users() -> list:
-    """Get all users with their assigned company counts for Admin dashboard."""
+    """Get all users with their assigned company counts and credits spent for Admin dashboard."""
     conn = get_connection()
     cur = conn.cursor() if hasattr(conn, "cursor") else conn
     cur.execute("""
         SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.created_at,
-               COUNT(uca.company_id) as assigned_companies_count
+               COUNT(DISTINCT uca.company_id) as assigned_companies_count,
+               COALESCE((SELECT SUM(credits_spent) FROM cvent_credit_transactions WHERE user_id = u.id), 0) as credits_spent
         FROM cvent_users u
         LEFT JOIN cvent_user_company_assignments uca ON uca.user_id = u.id
         GROUP BY u.id
@@ -1641,10 +1662,79 @@ def get_all_users() -> list:
     for r in rows:
         d = dict(r) if hasattr(r, "keys") else {
             "id": r[0], "username": r[1], "full_name": r[2], "role": r[3], "is_active": r[4], "created_at": r[5],
-            "assigned_companies_count": r[6]
+            "assigned_companies_count": r[6], "credits_spent": int(r[7] or 0)
         }
         users.append(d)
     return users
+
+
+def record_user_credit_transaction(
+    user_id: int,
+    username: str,
+    action: str,
+    target_name: str = "",
+    company_domain: str = "",
+    apollo_id: str = "",
+    credits_spent: int = 1
+) -> bool:
+    """Record credit expenditure for a specific user in PostgreSQL."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    try:
+        cur.execute("""
+            INSERT INTO cvent_credit_transactions (
+                user_id, username, action, target_name, company_domain, apollo_id, credits_spent, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """, (user_id, username, action, target_name, company_domain, apollo_id, credits_spent))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"[Credit Tracking] Failed to record transaction: {e}")
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        return False
+
+
+def get_user_credits_spent(user_id: int) -> int:
+    """Return total credits spent by a specific user."""
+    if not user_id:
+        return 0
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("SELECT COALESCE(SUM(credits_spent), 0) FROM cvent_credit_transactions WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    return int(_get_scalar(row, 0))
+
+
+def get_user_credit_history(user_id: int, limit: int = 50) -> list:
+    """Return detailed unlock audit history for a specific user."""
+    if not user_id:
+        return []
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT id, user_id, username, action, target_name, company_domain, apollo_id, credits_spent, created_at
+        FROM cvent_credit_transactions
+        WHERE user_id = %s
+        ORDER BY created_at DESC
+        LIMIT %s
+    """, (user_id, limit))
+    rows = cur.fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        d = dict(r) if hasattr(r, "keys") else {
+            "id": r[0], "user_id": r[1], "username": r[2], "action": r[3],
+            "target_name": r[4], "company_domain": r[5], "apollo_id": r[6],
+            "credits_spent": r[7], "created_at": str(r[8])
+        }
+        result.append(d)
+    return result
 
 
 def delete_user(user_id: int) -> bool:

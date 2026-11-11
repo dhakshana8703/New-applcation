@@ -41,6 +41,20 @@ def get_effective_user_id():
     return u.get("id")
 
 
+def require_admin(f):
+    """Enforce administrator session for sensitive backend endpoints."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        u = get_current_user()
+        if not u:
+            return jsonify({"error": "Authentication required", "status": "unauthorized"}), 401
+        if u.get("role") != "admin":
+            return jsonify({"error": "Administrator privileges required", "status": "forbidden"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 
 # ==============================================================================
 # AUTHENTICATION (HTTP Basic Auth)
@@ -141,12 +155,14 @@ def api_update_event(event_id):
 
 
 @app.route("/api/events/<int:event_id>", methods=["DELETE"])
+@require_admin
 def api_delete_event(event_id):
     success = cvent_db.delete_cvent_event(event_id)
     return jsonify({"success": success})
 
 
 @app.route("/api/events", methods=["DELETE"])
+@require_admin
 def api_bulk_delete_events():
     payload = request.get_json() or {}
     ids = payload.get("ids", [])
@@ -196,6 +212,7 @@ def api_get_company(company_id):
 
 
 @app.route("/api/companies/<int:company_id>", methods=["PUT"])
+@require_admin
 def api_update_company(company_id):
     updates = request.get_json() or {}
     success = cvent_db.update_cvent_company(company_id, updates)
@@ -203,12 +220,14 @@ def api_update_company(company_id):
 
 
 @app.route("/api/companies/<int:company_id>", methods=["DELETE"])
+@require_admin
 def api_delete_company(company_id):
     success = cvent_db.delete_cvent_company(company_id)
     return jsonify({"success": success})
 
 
 @app.route("/api/companies/extract", methods=["POST"])
+@require_admin
 def api_extract_companies():
     result = cvent_db.extract_companies_from_cvent()
     return jsonify(result)
@@ -385,8 +404,9 @@ def api_get_companies_domains_list():
 
 
 @app.route("/api/companies/<int:company_id>/enrich", methods=["POST"])
+@require_admin
 def api_enrich_single_company(company_id):
-    """Enrich a single company domain for 0 CREDITS using Apollo candidate search."""
+    """Enrich a single company domain for 0 CREDITS using Apollo candidate search (Admin only)."""
     body = request.get_json() or {}
     comp = cvent_db.get_cvent_company_by_id(company_id)
     if not comp:
@@ -405,8 +425,9 @@ def api_enrich_single_company(company_id):
     return jsonify(result)
 
 @app.route("/api/apollo/start-batch", methods=["POST"])
+@require_admin
 def api_apollo_start_batch():
-    """Starts background Apollo enrichment queue worker."""
+    """Starts background Apollo enrichment queue worker (Admin only)."""
     from apollo_enricher import apollo_worker
     payload = request.get_json() or {}
     batch_size = int(payload.get("batch_size", 5))
@@ -436,8 +457,9 @@ def api_apollo_batch_status():
 
 
 @app.route("/api/apollo/stop-batch", methods=["POST"])
+@require_admin
 def api_apollo_stop_batch():
-    """Sends graceful stop signal to active Apollo queue worker."""
+    """Sends graceful stop signal to active Apollo queue worker (Admin only)."""
     from apollo_enricher import apollo_worker
     stopped = apollo_worker.stop()
     if stopped:
@@ -447,7 +469,9 @@ def api_apollo_stop_batch():
 
 
 @app.route("/api/apollo/credit-log", methods=["GET"])
+@require_admin
 def api_apollo_download_credit_log():
+    """Download system-wide CSV credit usage audit log (Admin only)."""
     from credit_tracker import CSV_PATH
     if os.path.exists(CSV_PATH):
         with open(CSV_PATH, "r", encoding="utf-8") as f:
@@ -461,7 +485,9 @@ def api_apollo_download_credit_log():
 
 
 @app.route("/api/apollo/set-key", methods=["POST"])
+@require_admin
 def api_apollo_set_key():
+    """Update Apollo API key on server (Admin only)."""
     payload = request.get_json() or {}
     key = payload.get("api_key", "").strip()
     if not key:
@@ -477,7 +503,9 @@ def api_apollo_set_key():
 
 
 @app.route("/api/apollo/enrich-batch", methods=["POST"])
+@require_admin
 def api_apollo_enrich_batch():
+    """Run batch Apollo company enrichment (Admin only)."""
     from apollo_enricher import ApolloEnricher
     payload = request.get_json() or {}
     batch_size = int(payload.get("batch_size", 5))
@@ -519,8 +547,9 @@ def api_apollo_get_candidates():
 
 
 @app.route("/api/apollo/discover-candidates", methods=["POST"])
+@require_admin
 def api_apollo_discover_candidates():
-    """Trigger 0-credit discovery of all P1 & P2 candidates across company domains."""
+    """Trigger 0-credit discovery of all P1 & P2 candidates across company domains (Admin only)."""
     from apollo_enricher import ApolloEnricher
     payload = request.get_json() or {}
     max_companies = payload.get("max_companies")
@@ -534,25 +563,53 @@ def api_apollo_discover_candidates():
 
 @app.route("/api/apollo/unlock-candidate", methods=["POST"])
 def api_apollo_unlock_candidate():
-    """On-demand 1-click unlock for a specific candidate (costs 1 credit)."""
-    from apollo_enricher import ApolloEnricher
+    """On-demand 1-click unlock for a specific candidate (costs 1 credit). Strictly audited per user."""
+    u = get_current_user()
+    if not u:
+        return jsonify({"error": "Authentication required", "status": "unauthorized"}), 401
+
     payload = request.get_json() or {}
     apollo_id = payload.get("apollo_id", "").strip()
-    domain = payload.get("domain", "").strip()
+    domain = payload.get("domain", "").strip().lower()
 
     if not apollo_id:
         return jsonify({"error": "Missing apollo_id"}), 400
 
+    # Domain allocation guardrail: Non-admin users can ONLY unlock candidates from their assigned accounts
+    if u.get("role") != "admin":
+        assigned_doms = cvent_db.get_user_assigned_company_domains(u["id"])
+        if domain and domain not in assigned_doms:
+            return jsonify({
+                "error": f"Access denied: Company domain '{domain}' is not assigned to your outreach account.",
+                "status": "forbidden"
+            }), 403
+
+    from apollo_enricher import ApolloEnricher
     enricher = ApolloEnricher()
     res = enricher.unlock_candidate_on_demand(apollo_id=apollo_id, domain=domain)
     if "error" in res:
         return jsonify(res), 422
+
+    # Record credit transaction in PostgreSQL for this specific user
+    cvent_db.record_user_credit_transaction(
+        user_id=u["id"],
+        username=u.get("username", ""),
+        action="unlock_candidate",
+        target_name=res.get("name", ""),
+        company_domain=domain,
+        apollo_id=apollo_id,
+        credits_spent=1
+    )
+
+    # Attach user's updated credit count to response
+    res["user_credits_spent"] = cvent_db.get_user_credits_spent(u["id"])
     return jsonify(res)
 
 
 @app.route("/api/apollo/download-candidates-csv", methods=["GET"])
+@require_admin
 def api_apollo_download_candidates_csv():
-    """Download the discovered candidates spreadsheet as CSV."""
+    """Download the discovered candidates spreadsheet as CSV (Admin only)."""
     from apollo_enricher import CANDIDATES_CSV_PATH, ApolloEnricher
     if not os.path.exists(CANDIDATES_CSV_PATH):
         # Generate on the fly
@@ -570,8 +627,9 @@ def api_apollo_download_candidates_csv():
 
 
 @app.route("/api/apollo/download-candidates-json", methods=["GET"])
+@require_admin
 def api_apollo_download_candidates_json():
-    """Download the discovered candidates directory as JSON."""
+    """Download the discovered candidates directory as JSON (Admin only)."""
     from apollo_enricher import CANDIDATES_JSON_PATH, ApolloEnricher
     if not os.path.exists(CANDIDATES_JSON_PATH):
         ApolloEnricher().export_candidates_files()
@@ -650,21 +708,17 @@ def api_auth_me():
 # ==============================================================================
 
 @app.route("/api/admin/users", methods=["GET"])
+@require_admin
 def api_admin_get_users():
-    """Get all users with company counts (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
+    """Get all users with company counts and credits spent (Admin only)."""
     users = cvent_db.get_all_users()
     return jsonify({"users": users})
 
 
 @app.route("/api/admin/users", methods=["POST"])
+@require_admin
 def api_admin_create_user():
     """Create new user account (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     payload = request.get_json() or {}
     res = cvent_db.create_user(
         username=payload.get("username"),
@@ -678,11 +732,10 @@ def api_admin_create_user():
 
 
 @app.route("/api/admin/users/<int:target_user_id>", methods=["DELETE"])
+@require_admin
 def api_admin_delete_user(target_user_id):
     """Delete a user account (Admin only)."""
     u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     if u["id"] == target_user_id:
         return jsonify({"error": "You cannot delete your own admin account"}), 400
     cvent_db.delete_user(target_user_id)
@@ -690,11 +743,9 @@ def api_admin_delete_user(target_user_id):
 
 
 @app.route("/api/admin/users/<int:target_user_id>/password", methods=["POST"])
+@require_admin
 def api_admin_update_password(target_user_id):
     """Change password for a user account (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     payload = request.get_json() or {}
     new_pass = payload.get("password", "")
     res = cvent_db.update_user_password(target_user_id, new_pass)
@@ -704,21 +755,17 @@ def api_admin_update_password(target_user_id):
 
 
 @app.route("/api/admin/users/<int:target_user_id>/companies", methods=["GET"])
+@require_admin
 def api_admin_get_user_companies(target_user_id):
     """Get company IDs assigned to user (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     assigned_ids = cvent_db.get_user_assigned_company_ids(target_user_id)
     return jsonify({"user_id": target_user_id, "assigned_company_ids": assigned_ids})
 
 
 @app.route("/api/admin/users/<int:target_user_id>/companies", methods=["POST"])
+@require_admin
 def api_admin_set_user_companies(target_user_id):
     """Replace full set of assigned companies for user (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     payload = request.get_json() or {}
     company_ids = payload.get("company_ids", [])
     res = cvent_db.set_user_company_assignments(target_user_id, company_ids)
@@ -726,11 +773,9 @@ def api_admin_set_user_companies(target_user_id):
 
 
 @app.route("/api/admin/companies-lookup", methods=["GET"])
+@require_admin
 def api_admin_companies_lookup():
     """Lightweight lookup of all companies for allocation modal (Admin only)."""
-    u = get_current_user()
-    if not u or u.get("role") != "admin":
-        return jsonify({"error": "Admin privileges required"}), 403
     res = cvent_db.get_all_cvent_companies(limit=1000, offset=0, user_id=None)
     comps = [{
         "id": c["id"],
@@ -740,3 +785,20 @@ def api_admin_companies_lookup():
         "total_candidates": c.get("total_candidates", 0)
     } for c in res.get("companies", [])]
     return jsonify({"companies": comps, "total": len(comps)})
+
+
+@app.route("/api/admin/users/<int:target_user_id>/credits", methods=["GET"])
+@require_admin
+def api_admin_user_credits(target_user_id):
+    """Retrieve detailed credit transaction audit log for a specific user (Admin only)."""
+    history = cvent_db.get_user_credit_history(target_user_id, limit=100)
+    total = cvent_db.get_user_credits_spent(target_user_id)
+    target_user = cvent_db.get_user_by_id(target_user_id)
+    return jsonify({
+        "status": "ok",
+        "user_id": target_user_id,
+        "username": target_user.get("username") if target_user else "",
+        "full_name": target_user.get("full_name") if target_user else "",
+        "total_credits": total,
+        "transactions": history
+    })

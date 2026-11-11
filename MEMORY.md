@@ -114,3 +114,19 @@ Implemented enterprise-grade authentication, role-based permissions, and company
 * **Default Seeded Accounts:**
   - Admin: `admin` / `admin123`
   - SDR User: `sdr_user` / `user123`
+
+---
+
+## 8. Per-User Credit Auditing & Production Security Hardening
+
+* **Per-User Credit Tracking (`cvent_credit_transactions` in Neon PostgreSQL):**
+  - Records every on-demand contact unlock with `user_id`, `username`, `target_name`, `company_domain`, `apollo_id`, `credits_spent`, and timestamp.
+  - SDR Dashboard displays personal live credit counter in the header badge and targeted outreach banner.
+  - Admin Team Dashboard features a dedicated **⚡ Credits Used** column per user with an interactive **🔍 Audit Log Modal** detailing all individual unlocks.
+* **Strict Backend Security Gatekeeping (`@require_admin`):**
+  - Apollo API Key configuration, queue management, batch enrichment, candidate sheets/JSON downloads, and audit logs are strictly restricted to Administrators. Non-admin access is rejected with `403 Forbidden`.
+  - Database deletion (bulk event delete, single event delete, company deletion) and company re-extraction are strictly locked behind `@require_admin`.
+  - Outreach SDRs are strictly restricted to unlocking leads belonging to their assigned company domains.
+* **Clean SDR Outreach Workspace (UI Hardening):**
+  - Apollo batch engine controls, API key previews, global credit spend, and raw candidate export buttons are completely hidden from SDR views.
+  - Replaced with a modern, distraction-free **Outbound Outreach Pipeline** header displaying assigned account counts and personal unlocked lead counts.
