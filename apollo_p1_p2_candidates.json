@@ -1,9 +1,9 @@
 {
-  "last_updated": "2026-11-11T06:59:13.938059Z",
+  "last_updated": "2026-11-11T12:25:48.416647Z",
   "total_candidates": 1504,
   "p1_count": 1424,
   "p2_count": 80,
-  "unlocked_count": 27,
+  "unlocked_count": 28,
   "candidates": [
     {
       "apollo_id": "54a3a8327468693209864d08",
@@ -361,6 +361,23 @@
       "events_count": 7,
       "discovered_at": "2026-11-10 08:58:46",
       "unlocked_at": "2026-11-10 13:37:05"
+    },
+    {
+      "apollo_id": "5f0bd3e964b94b0001bacdff",
+      "company_id": 47,
+      "company_name": "Dentsplysirona",
+      "domain": "dentsplysirona.com",
+      "first_name": "Bob",
+      "last_name": "",
+      "name": "Bob Leavens",
+      "title": "Managing Director",
+      "persona": "P1",
+      "is_unlocked": 1,
+      "email": "",
+      "linkedin_url": "http://www.linkedin.com/in/bob-leavens-b73ba7165",
+      "events_count": 5,
+      "discovered_at": "2026-11-10 08:58:49",
+      "unlocked_at": "2026-11-11 12:25:48"
     },
     {
       "apollo_id": "54a8022974686975f82a4e5c",
@@ -1499,23 +1516,6 @@
       "linkedin_url": "",
       "events_count": 5,
       "discovered_at": "2026-11-10 08:59:53",
-      "unlocked_at": null
-    },
-    {
-      "apollo_id": "5f0bd3e964b94b0001bacdff",
-      "company_id": 47,
-      "company_name": "Dentsplysirona",
-      "domain": "dentsplysirona.com",
-      "first_name": "Bob",
-      "last_name": "",
-      "name": "Bob",
-      "title": "Managing Director",
-      "persona": "P1",
-      "is_unlocked": 0,
-      "email": "",
-      "linkedin_url": "",
-      "events_count": 5,
-      "discovered_at": "2026-11-10 08:58:49",
       "unlocked_at": null
     },
     {

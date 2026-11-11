@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 56,
-  "last_updated": "2026-11-11T06:59:12.415489Z",
+  "total_credits_spent": 57,
+  "last_updated": "2026-11-11T12:25:48.050161Z",
   "breakdown": {
     "match_creator": 8,
     "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 36,
+    "unlock_work_email": 37,
     "search_persona_candidates": 0
   },
   "history": [
@@ -4848,6 +4848,16 @@
       "target": "63c2521f64516c000171aa43",
       "credits": 1,
       "cumulative_total": 56
+    },
+    {
+      "timestamp": "2026-11-11T12:25:48.050161Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "5f0bd3e964b94b0001bacdff",
+      "credits": 1,
+      "cumulative_total": 57
     }
   ]
 }

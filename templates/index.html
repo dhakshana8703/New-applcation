@@ -603,7 +603,7 @@
         Neon PostgreSQL Connected
       </div>
       <!-- Current User Badge -->
-      <div id="userStatusPill" class="status-pill" style="display:none; background:rgba(14, 165, 233, 0.12); border-color:#0284c7; color:#38bdf8; gap:8px;">
+      <div id="userStatusPill" class="status-pill" onclick="handleAuthAction()" title="Click to switch account or log out" style="display:none; cursor:pointer; background:rgba(14, 165, 233, 0.12); border-color:#0284c7; color:#38bdf8; gap:8px;">
         <span style="font-size: 13px;">👤</span>
         <span id="userBadgeName" style="font-weight: 600;">Guest</span>
         <span id="userRoleBadge" class="badge" style="font-size: 10px;">USER</span>
@@ -1193,7 +1193,7 @@
         </div>
         <div style="font-size:11px; color:var(--text-muted); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px 12px; border-radius:6px; line-height:1.5;">
           • <strong>Admin Account:</strong> <code>admin</code> / <code>admin123</code><br>
-          • <strong>Standard Rep Account:</strong> <code>sdr_user</code> / <code>user123</code>
+          • <strong>Outreach Rep:</strong> <code>dhakshana</code> / <code>user123</code>
         </div>
       </div>
       <div class="modal-footer">
@@ -1619,18 +1619,24 @@
 
     function handleAuthAction() {
       if (currentUser) {
-        if (confirm(`Log out from account ${currentUser.username}?`)) {
-          fetch("/api/auth/logout", { method: "POST" }).then(() => {
-            currentUser = null;
-            updateAuthUI();
-            openModal("modalAuthLogin");
-            fetchEvents(0);
-            fetchCompanies(0);
-            fetchPeople(0);
-            populateCompanyDropdown();
-          });
+        if (confirm(`Log out from account "${currentUser.username}" (${currentUser.role})?`)) {
+          fetch("/api/auth/logout", { method: "POST" })
+            .finally(() => {
+              currentUser = null;
+              updateAuthUI();
+              const errBox = document.getElementById("loginErrorMsg");
+              if (errBox) errBox.style.display = "none";
+              openModal("modalAuthLogin");
+              fetchEvents(0);
+              fetchCompanies(0);
+              fetchPeople(0);
+              fetchOverviewStats();
+              populateCompanyDropdown();
+            });
         }
       } else {
+        const errBox = document.getElementById("loginErrorMsg");
+        if (errBox) errBox.style.display = "none";
         openModal("modalAuthLogin");
       }
     }
@@ -1664,7 +1670,12 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password })
         });
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          data = { error: `Server error (${res.status}): ${res.statusText}` };
+        }
         if (res.ok && data.status === "ok") {
           currentUser = data.user;
           updateAuthUI();

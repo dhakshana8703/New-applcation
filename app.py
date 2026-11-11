@@ -57,32 +57,8 @@ def require_admin(f):
 
 
 # ==============================================================================
-# AUTHENTICATION (HTTP Basic Auth)
+# HEALTH CHECK
 # ==============================================================================
-
-@app.before_request
-def require_basic_auth():
-    """Protect the dashboard if APP_USERNAME and APP_PASSWORD are set."""
-    auth_user = os.environ.get("APP_USERNAME")
-    auth_pass = os.environ.get("APP_PASSWORD")
-
-    if not auth_user or not auth_pass:
-        return None
-
-    if request.path == "/healthz":
-        return None
-
-    auth = request.authorization
-    if not auth or not (
-        secrets.compare_digest(auth.username or "", auth_user) and
-        secrets.compare_digest(auth.password or "", auth_pass)
-    ):
-        return Response(
-            "Access Denied: Please provide valid credentials to access the Cvent Intelligence Dashboard.\n",
-            401,
-            {"WWW-Authenticate": 'Basic realm="Cvent Intelligence Portal"'}
-        )
-
 
 @app.route("/healthz")
 def healthz():
@@ -695,6 +671,7 @@ def api_auth_login():
     res = cvent_db.authenticate_user(username, password)
     if "error" in res:
         return jsonify(res), 401
+    session.clear()
     session["user_id"] = res["id"]
     session["username"] = res["username"]
     session["role"] = res["role"]
