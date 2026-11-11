@@ -419,13 +419,15 @@ def get_all_candidates_list(
 
 
 def get_company_candidate_stats() -> Dict[str, Dict[str, Any]]:
-    """Get P1 count, P2 count, and last enriched date for each company domain."""
+    """Get P1 count, P2 count, unlocked count, remaining count, and last enriched date for each company domain."""
     conn = _get_sqlite_conn()
     cur = conn.cursor()
     cur.execute("""
         SELECT domain,
                SUM(CASE WHEN persona = 'P1' THEN 1 ELSE 0 END) as p1_count,
                SUM(CASE WHEN persona = 'P2' THEN 1 ELSE 0 END) as p2_count,
+               SUM(CASE WHEN is_unlocked = 1 THEN 1 ELSE 0 END) as unlocked_count,
+               SUM(CASE WHEN is_unlocked = 0 THEN 1 ELSE 0 END) as locked_count,
                COUNT(*) as total_count,
                MAX(discovered_at) as last_enriched
         FROM apollo_candidates
@@ -438,8 +440,10 @@ def get_company_candidate_stats() -> Dict[str, Dict[str, Any]]:
         (r[0] or "").lower().strip(): {
             "p1_count": r[1] or 0,
             "p2_count": r[2] or 0,
-            "total_count": r[3] or 0,
-            "last_enriched": r[4] or ""
+            "unlocked_count": r[3] or 0,
+            "locked_count": r[4] or 0,
+            "total_count": r[5] or 0,
+            "last_enriched": r[6] or ""
         }
         for r in rows
     }

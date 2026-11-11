@@ -233,6 +233,21 @@ def api_extract_companies():
     return jsonify(result)
 
 
+# ==============================================================================
+# CRM LEAD PIPELINE & OUTREACH ANALYTICS API
+# ==============================================================================
+
+@app.route("/api/crm/stats", methods=["GET"])
+def api_crm_stats():
+    """Return real-time CRM lead funnel statistics (Total, Unlocked, Remaining)."""
+    u = get_current_user()
+    if not u:
+        return jsonify({"error": "Authentication required", "status": "unauthorized"}), 401
+    user_id = None if u.get("role") == "admin" else u["id"]
+    stats = cvent_db.get_crm_pipeline_stats(user_id=user_id)
+    return jsonify({"status": "ok", "user": u["username"], "stats": stats})
+
+
 @app.route("/api/companies/export", methods=["GET"])
 def api_export_companies_csv():
     csv_data = cvent_db.export_cvent_companies_csv()

@@ -773,6 +773,8 @@ def get_all_cvent_companies(limit=50, offset=0, search="", filter_type="all", us
         st = cand_stats.get(dom, {})
         d["p1_count"] = st.get("p1_count", 0)
         d["p2_count"] = st.get("p2_count", 0)
+        d["unlocked_count"] = st.get("unlocked_count", 0)
+        d["remaining_count"] = st.get("locked_count", 0)
         d["total_candidates"] = st.get("total_count", 0)
         d["last_enriched"] = st.get("last_enriched", "")
         d["is_enriched"] = bool(st.get("total_count", 0) > 0)
@@ -1637,14 +1639,27 @@ def get_user_by_id(user_id: int) -> dict:
     conn.close()
     if not row:
         return None
-    return dict(row) if hasattr(row, "keys") else {
+    res = dict(row) if hasattr(row, "keys") else {
         "id": row[0], "username": row[1], "full_name": row[2], "role": row[3], "is_active": row[4], "created_at": row[5],
         "assigned_companies_count": row[6], "credits_spent": int(row[7] or 0)
     }
+    # Enriched CRM Pipeline metrics
+    if res["role"] != "admin":
+        st = get_crm_pipeline_stats(user_id)
+        res["total_leads"] = st.get("total_leads", 0)
+        res["unlocked_leads"] = st.get("unlocked_leads", 0)
+        res["remaining_leads"] = st.get("remaining_leads", 0)
+        res["unlock_percentage"] = st.get("unlock_percentage", 0.0)
+    else:
+        res["total_leads"] = 0
+        res["unlocked_leads"] = 0
+        res["remaining_leads"] = 0
+        res["unlock_percentage"] = 0.0
+    return res
 
 
 def get_all_users() -> list:
-    """Get all users with their assigned company counts and credits spent for Admin dashboard."""
+    """Get all users with their assigned company counts, CRM pipeline stats, and credits spent for Admin dashboard."""
     conn = get_connection()
     cur = conn.cursor() if hasattr(conn, "cursor") else conn
     cur.execute("""
@@ -1664,6 +1679,17 @@ def get_all_users() -> list:
             "id": r[0], "username": r[1], "full_name": r[2], "role": r[3], "is_active": r[4], "created_at": r[5],
             "assigned_companies_count": r[6], "credits_spent": int(r[7] or 0)
         }
+        if d["role"] != "admin" and d.get("assigned_companies_count", 0) > 0:
+            st = get_crm_pipeline_stats(d["id"])
+            d["total_leads"] = st.get("total_leads", 0)
+            d["unlocked_leads"] = st.get("unlocked_leads", 0)
+            d["remaining_leads"] = st.get("remaining_leads", 0)
+            d["unlock_percentage"] = st.get("unlock_percentage", 0.0)
+        else:
+            d["total_leads"] = 0
+            d["unlocked_leads"] = 0
+            d["remaining_leads"] = 0
+            d["unlock_percentage"] = 0.0
         users.append(d)
     return users
 
@@ -1835,3 +1861,147 @@ def set_user_company_assignments(user_id: int, company_ids: list) -> dict:
     conn.commit()
     conn.close()
     return {"status": "ok", "user_id": user_id, "assigned_count": assigned_count}
+
+
+def get_crm_pipeline_stats(user_id=None) -> dict:
+    """
+    Computes real-time CRM Lead Funnel statistics for an SDR user or entire organization:
+    - Assigned companies count
+    - Total leads in pipeline (Apollo candidates + Cvent creators)
+    - Unlocked leads (ready for outreach with verified emails)
+    - Remaining locked leads (candidates waiting to be unlocked)
+    - Unlock progress percentage
+    - Personal credits spent by user
+    """
+    assigned_ids = None
+    assigned_doms = None
+    if user_id is not None:
+        assigned_ids = get_user_assigned_company_ids(user_id)
+        assigned_doms = get_user_assigned_company_domains(user_id)
+        if not assigned_ids:
+            return {
+                "assigned_companies_count": 0,
+                "total_leads": 0,
+                "unlocked_leads": 0,
+                "remaining_leads": 0,
+                "unlock_percentage": 0.0,
+                "user_credits_spent": get_user_credits_spent(user_id),
+                "p1_total": 0,
+                "p1_unlocked": 0,
+                "p1_remaining": 0,
+                "p2_total": 0,
+                "p2_unlocked": 0,
+                "p2_remaining": 0,
+                "creators_count": 0
+            }
+
+    # 1. Apollo Candidates from SQLite cache
+    cand_total = 0
+    cand_unlocked = 0
+    cand_remaining = 0
+    p1_total = 0
+    p1_unlocked = 0
+    p1_remaining = 0
+    p2_total = 0
+    p2_unlocked = 0
+    p2_remaining = 0
+
+    try:
+        import apollo_cache
+        conn_sq = apollo_cache._get_sqlite_conn()
+        cur_sq = conn_sq.cursor()
+        sq_conds = ["domain != '' AND domain IS NOT NULL"]
+        sq_params = []
+        if assigned_doms is not None:
+            if assigned_doms:
+                placeholders = ",".join("?" for _ in assigned_doms)
+                sq_conds.append(f"LOWER(domain) IN ({placeholders})")
+                sq_params.extend([d.lower() for d in assigned_doms])
+            else:
+                sq_conds.append("1=0")
+
+        cur_sq.execute(f"""
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN is_unlocked = 1 THEN 1 ELSE 0 END) as unlocked,
+                SUM(CASE WHEN is_unlocked = 0 THEN 1 ELSE 0 END) as remaining,
+                SUM(CASE WHEN persona = 'P1' THEN 1 ELSE 0 END) as p1_total,
+                SUM(CASE WHEN persona = 'P1' AND is_unlocked = 1 THEN 1 ELSE 0 END) as p1_unlocked,
+                SUM(CASE WHEN persona = 'P1' AND is_unlocked = 0 THEN 1 ELSE 0 END) as p1_remaining,
+                SUM(CASE WHEN persona = 'P2' THEN 1 ELSE 0 END) as p2_total,
+                SUM(CASE WHEN persona = 'P2' AND is_unlocked = 1 THEN 1 ELSE 0 END) as p2_unlocked,
+                SUM(CASE WHEN persona = 'P2' AND is_unlocked = 0 THEN 1 ELSE 0 END) as p2_remaining
+            FROM apollo_candidates
+            WHERE {' AND '.join(sq_conds)}
+        """, sq_params)
+        sq_row = cur_sq.fetchone()
+        conn_sq.close()
+
+        if sq_row:
+            cand_total = sq_row[0] or 0
+            cand_unlocked = sq_row[1] or 0
+            cand_remaining = sq_row[2] or 0
+            p1_total = sq_row[3] or 0
+            p1_unlocked = sq_row[4] or 0
+            p1_remaining = sq_row[5] or 0
+            p2_total = sq_row[6] or 0
+            p2_unlocked = sq_row[7] or 0
+            p2_remaining = sq_row[8] or 0
+    except Exception as e:
+        print(f"[CRM Stats] SQLite query error: {e}")
+
+    # 2. Cvent Creators from PostgreSQL
+    creators_count = 0
+    try:
+        conn_pg = get_connection()
+        cur_pg = conn_pg.cursor()
+        pg_conds = ["p.is_creator_email = TRUE", "p.email != ''", "p.email IS NOT NULL"]
+        pg_params = []
+        if assigned_ids is not None:
+            if assigned_ids:
+                id_list = ",".join(str(i) for i in assigned_ids)
+                pg_conds.append(f"c.company_id IN ({id_list})")
+            else:
+                pg_conds.append("1=0")
+
+        cur_pg.execute(f"""
+            SELECT COUNT(DISTINCT LOWER(p.email))
+            FROM cvent_people p
+            LEFT JOIN cvent c ON p.event_id = c.id
+            WHERE {' AND '.join(pg_conds)}
+        """, pg_params)
+        pg_row = cur_pg.fetchone()
+        conn_pg.close()
+        creators_count = _get_scalar(pg_row, 0)
+    except Exception as e:
+        print(f"[CRM Stats] PostgreSQL query error: {e}")
+
+    # 3. Companies count
+    if user_id is not None:
+        companies_count = len(assigned_ids)
+    else:
+        conn = get_connection()
+        c_row = conn.execute("SELECT COUNT(*) FROM cvent_companies").fetchone()
+        conn.close()
+        companies_count = _get_scalar(c_row, 0)
+
+    total_leads = cand_total + creators_count
+    unlocked_leads = cand_unlocked + creators_count
+    remaining_leads = cand_remaining
+    unlock_pct = round((unlocked_leads / total_leads * 100), 1) if total_leads > 0 else 0.0
+
+    return {
+        "assigned_companies_count": companies_count,
+        "total_leads": total_leads,
+        "unlocked_leads": unlocked_leads,
+        "remaining_leads": remaining_leads,
+        "unlock_percentage": unlock_pct,
+        "user_credits_spent": get_user_credits_spent(user_id) if user_id else 0,
+        "p1_total": p1_total,
+        "p1_unlocked": p1_unlocked,
+        "p1_remaining": p1_remaining,
+        "p2_total": p2_total,
+        "p2_unlocked": p2_unlocked,
+        "p2_remaining": p2_remaining,
+        "creators_count": creators_count
+    }

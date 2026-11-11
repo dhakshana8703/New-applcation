@@ -628,8 +628,8 @@
   <!-- Main Container -->
   <div class="container">
 
-    <!-- Top KPI Stats -->
-    <div class="stats-grid">
+    <!-- Admin KPI Stats Grid -->
+    <div class="stats-grid" id="statsGridAdmin">
       <div class="stat-card">
         <div class="stat-label">Total Cvent Events</div>
         <div class="stat-val" id="statTotalEvents">...</div>
@@ -645,17 +645,34 @@
         <div class="stat-val" id="statTotalCompanies">...</div>
         <div class="stat-sub">316 verified corporate domains</div>
       </div>
-      <!-- Admin Card: Scraper Status -->
       <div class="stat-card" id="statScraperCard">
         <div class="stat-label">Scraper Engine</div>
         <div class="stat-val" style="font-size: 20px;" id="statScraperStatus">Idle</div>
         <div class="stat-sub" id="statLatestScrape">Latest scrape: live</div>
       </div>
-      <!-- SDR Card: Outreach Credits Spent -->
-      <div class="stat-card" id="statUserCreditsCard" style="display:none;">
-        <div class="stat-label">Your Unlocked Leads (Credits)</div>
-        <div class="stat-val" style="font-size: 20px; color:#f59e0b;" id="statUserCreditsVal">0</div>
-        <div class="stat-sub" id="statUserCreditsSub">Across your assigned target accounts</div>
+    </div>
+
+    <!-- SDR CRM Sales Lead Funnel Grid (Normal Outreach Rep) -->
+    <div class="stats-grid" id="statsGridSdr" style="display: none;">
+      <div class="stat-card" style="border-left: 3px solid #0284c7;">
+        <div class="stat-label">🏢 Target Accounts</div>
+        <div class="stat-val" style="color: #38bdf8;" id="crmCardCompanies">0 Accounts</div>
+        <div class="stat-sub">Allocated for Outbound Outreach</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #8b5cf6;">
+        <div class="stat-label">👥 Total Leads in Pipeline</div>
+        <div class="stat-val" style="color: #c084fc;" id="crmCardTotalLeads">0 Prospects</div>
+        <div class="stat-sub" id="crmCardP1P2Sub">Across your assigned accounts</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #10b981;">
+        <div class="stat-label">✅ Unlocked &amp; Ready</div>
+        <div class="stat-val" style="color: #10b981;" id="crmCardUnlocked">0 Unlocked</div>
+        <div class="stat-sub" id="crmCardUnlockPct">Ready for email/LinkedIn outreach</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #f59e0b;">
+        <div class="stat-label">🔒 Remaining to Unlock</div>
+        <div class="stat-val" style="color: #f59e0b;" id="crmCardRemaining">0 Remaining</div>
+        <div class="stat-sub" id="crmCardCreditsSub">0 personal credits spent</div>
       </div>
     </div>
 
@@ -805,32 +822,62 @@
         </div>
       </div>
 
-      <!-- SDR Outreach Mode Banner (Standard User / Rep View) -->
-      <div id="sdrPeopleOutreachBanner" style="display: none; background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(99, 102, 241, 0.08)); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 10px; padding: 14px 20px; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <!-- SDR CRM Lead Command Center Banner (Normal Rep View) -->
+      <div id="sdrPeopleOutreachBanner" style="display: none; background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(99, 102, 241, 0.08)); border: 1px solid rgba(14, 165, 233, 0.28); border-radius: 12px; padding: 18px 22px; margin-bottom: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+        <!-- Top Title & Rep Context -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(14, 165, 233, 0.2); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(14, 165, 233, 0.4); display: flex; align-items: center; justify-content: center; font-size: 20px;">
               🎯
             </div>
             <div>
-              <div style="font-weight: 700; font-size: 14px; color: #f8fafc;">
-                Target Outreach Leads Pipeline
-                <span class="badge" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; margin-left: 6px; font-weight: normal;">Partitioned Workspace</span>
+              <div style="font-weight: 800; font-size: 15px; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                CRM Outreach Pipeline
+                <span id="crmPipelineBadge" class="badge" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; font-size: 11px;">Target Accounts Active</span>
               </div>
               <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Verified decision-makers and buyers isolated exclusively to your allocated corporate accounts. Click <strong>Unlock</strong> to reveal verified email &amp; LinkedIn for targeted outreach.
+                Verified decision-makers and operational buyers isolated exclusively to your allocated corporate accounts.
               </div>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 6px 16px; text-align: center;">
-              <div style="font-size: 10px; color: #fbbf24; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Your Credits Used</div>
-              <div id="sdrCreditsCountText" style="font-size: 16px; font-weight: 800; color: #f59e0b;">0</div>
-            </div>
-            <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 6px 16px; text-align: center;">
-              <div style="font-size: 10px; color: #38bdf8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Assigned Accounts</div>
-              <div id="sdrAssignedCountText" style="font-size: 16px; font-weight: 800; color: #38bdf8;">0</div>
-            </div>
+          <!-- Lead Progress Percent Badge -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="crmProgressPercentText" style="font-size: 13px; font-weight: 700; color: #10b981;">0% Pipeline Unlocked</span>
+          </div>
+        </div>
+
+        <!-- CRM Visual Segmented Funnel Progress Bar -->
+        <div style="margin-bottom: 14px;">
+          <div style="width: 100%; height: 9px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; overflow: hidden; display: flex;">
+            <div id="crmBarUnlocked" style="width: 0%; height: 100%; background: linear-gradient(90deg, #059669, #10b981); transition: width 0.5s ease; border-radius: 6px 0 0 6px;" title="Unlocked &amp; Ready for Outreach"></div>
+            <div id="crmBarRemaining" style="width: 100%; height: 100%; background: linear-gradient(90deg, #d97706, #f59e0b); transition: width 0.5s ease; opacity: 0.65; border-radius: 0 6px 6px 0;" title="Remaining Locked Prospects"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 5px; color: var(--text-muted);">
+            <span><strong style="color: #10b981;">● Unlocked:</strong> <span id="sdrUnlockedLeadsText">0</span> Leads Ready for Outreach</span>
+            <span><strong style="color: #f59e0b;">● Remaining:</strong> <span id="sdrRemainingLeadsText">0</span> Prospects Waiting to Unlock</span>
+            <span><strong>Total:</strong> <span id="sdrTotalLeadsText">0</span> Leads Across <span id="sdrAssignedCountText">0</span> Accounts</span>
+          </div>
+        </div>
+
+        <!-- CRM Action & Quick-Filter Bar -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Quick Filter:</span>
+            <button class="btn" id="pillFilterAll" onclick="setQuickStatusFilter('all')" style="padding: 4px 12px; font-size: 11px; border: 1px solid #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.12); font-weight: 600;">
+              All Leads (0)
+            </button>
+            <button class="btn" id="pillFilterUnlocked" onclick="setQuickStatusFilter('unlocked')" style="padding: 4px 12px; font-size: 11px; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; background: rgba(16, 185, 129, 0.1); font-weight: 600;">
+              ✓ Unlocked (0)
+            </button>
+            <button class="btn" id="pillFilterLocked" onclick="setQuickStatusFilter('locked')" style="padding: 4px 12px; font-size: 11px; border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; background: rgba(245, 158, 11, 0.1); font-weight: 600;">
+              🔒 Remaining to Unlock (0)
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 12px; color: var(--text-muted);">Your Personal Credits Spent:</span>
+            <span class="badge" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #f59e0b; font-size: 12px; font-weight: 800; padding: 4px 10px;">
+              ⚡ <span id="sdrCreditsCountText">0</span> Credits
+            </span>
           </div>
         </div>
       </div>
@@ -938,15 +985,15 @@
                 <th width="45">ID</th>
                 <th>Company Name</th>
                 <th>Domain / Website</th>
-                <th width="85">Events</th>
-                <th width="90">P1 Leaders</th>
-                <th width="90">P2 Leaders</th>
-                <th width="140">Status</th>
-                <th width="210">Actions</th>
+                <th width="80">Events</th>
+                <th width="120">P1 / P2 Leaders</th>
+                <th width="90">Unlocked</th>
+                <th width="105">Remaining</th>
+                <th width="180">Actions</th>
               </tr>
             </thead>
             <tbody id="companiesTableBody">
-              <tr><td colspan="7" class="empty-state"><div class="spinner"></div> Loading Cvent companies...</td></tr>
+              <tr><td colspan="8" class="empty-state"><div class="spinner"></div> Loading Cvent companies...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1185,12 +1232,13 @@
                   <th>Full Name</th>
                   <th width="85">Role</th>
                   <th>Allocated Accounts</th>
-                  <th width="130">Credits Used</th>
+                  <th width="210">CRM Lead Pipeline</th>
+                  <th width="120">Credits Used</th>
                   <th width="240">Actions</th>
                 </tr>
               </thead>
               <tbody id="adminUsersTableBody">
-                <tr><td colspan="7" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>
+                <tr><td colspan="8" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1416,14 +1464,16 @@
           if (btnBulkDelete) btnBulkDelete.style.display = "inline-block";
           if (btnReExtract) btnReExtract.style.display = "inline-block";
 
+          const gridAdmin = document.getElementById("statsGridAdmin");
+          const gridSdr = document.getElementById("statsGridSdr");
+          if (gridAdmin) gridAdmin.style.display = "grid";
+          if (gridSdr) gridSdr.style.display = "none";
+
           if (userAllocBadge) {
             userAllocBadge.style.display = "inline-block";
             userAllocBadge.innerText = "All Accounts (Full DB)";
           }
           if (userCreditBadge) userCreditBadge.style.display = "none";
-
-          if (statScraper) statScraper.style.display = "flex";
-          if (statUserCredits) statUserCredits.style.display = "none";
         } else {
           // --- OUTREACH SDR / USER ROLE VIEW ---
           if (btnAdmin) btnAdmin.style.display = "none";
@@ -1433,6 +1483,11 @@
           if (sdrPeopleBanner) sdrPeopleBanner.style.display = "block";
           if (btnBulkDelete) btnBulkDelete.style.display = "none";
           if (btnReExtract) btnReExtract.style.display = "none";
+
+          const gridAdmin = document.getElementById("statsGridAdmin");
+          const gridSdr = document.getElementById("statsGridSdr");
+          if (gridAdmin) gridAdmin.style.display = "none";
+          if (gridSdr) gridSdr.style.display = "grid";
 
           const assignedCount = currentUser.assigned_companies_count || 0;
           const creditsSpent = currentUser.credits_spent || 0;
@@ -1449,15 +1504,7 @@
             userCreditBadge.innerText = `⚡ ${creditsSpent} Credits Used`;
           }
 
-          if (sdrCreditsCount) sdrCreditsCount.innerText = creditsSpent;
-          if (sdrAssignedCount) sdrAssignedCount.innerText = assignedCount;
-
-          if (statScraper) statScraper.style.display = "none";
-          if (statUserCredits) {
-            statUserCredits.style.display = "flex";
-            if (statUserCreditsVal) statUserCreditsVal.innerText = creditsSpent;
-            if (statUserCreditsSub) statUserCreditsSub.innerText = `Across your ${assignedCount} assigned accounts`;
-          }
+          refreshCrmPipelineUI();
         }
       } else {
         if (userPill) userPill.style.display = "none";
@@ -1469,6 +1516,104 @@
         if (sdrPeopleBanner) sdrPeopleBanner.style.display = "none";
         if (btnBulkDelete) btnBulkDelete.style.display = "none";
         if (btnReExtract) btnReExtract.style.display = "none";
+      }
+    }
+
+    async function refreshCrmPipelineUI() {
+      if (!currentUser) return;
+      try {
+        const res = await fetch("/api/crm/stats");
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          const st = data.stats;
+
+          // 1. Update SDR CRM Funnel KPI Cards
+          const crmComp = document.getElementById("crmCardCompanies");
+          if (crmComp) crmComp.innerText = `${st.assigned_companies_count || 0} Accounts`;
+
+          const crmTot = document.getElementById("crmCardTotalLeads");
+          if (crmTot) crmTot.innerText = `${st.total_leads || 0} Prospects`;
+
+          const crmP1P2 = document.getElementById("crmCardP1P2Sub");
+          if (crmP1P2) crmP1P2.innerText = `${st.p1_total || 0} P1 Decision-Makers · ${st.p2_total || 0} P2 Buyers`;
+
+          const crmUnl = document.getElementById("crmCardUnlocked");
+          if (crmUnl) crmUnl.innerText = `${st.unlocked_leads || 0} Unlocked`;
+
+          const crmPct = document.getElementById("crmCardUnlockPct");
+          if (crmPct) crmPct.innerText = `${st.unlock_percentage || 0}% of pipeline ready to email`;
+
+          const crmRem = document.getElementById("crmCardRemaining");
+          if (crmRem) crmRem.innerText = `${st.remaining_leads || 0} Remaining`;
+
+          const crmCredSub = document.getElementById("crmCardCreditsSub");
+          if (crmCredSub) crmCredSub.innerText = `${st.user_credits_spent || 0} personal credits spent`;
+
+          // 2. Update People Tab CRM Command Center Banner
+          const sdrTot = document.getElementById("sdrTotalLeadsText");
+          if (sdrTot) sdrTot.innerText = st.total_leads || 0;
+
+          const sdrUnl = document.getElementById("sdrUnlockedLeadsText");
+          if (sdrUnl) sdrUnl.innerText = st.unlocked_leads || 0;
+
+          const sdrRem = document.getElementById("sdrRemainingLeadsText");
+          if (sdrRem) sdrRem.innerText = st.remaining_leads || 0;
+
+          const sdrCred = document.getElementById("sdrCreditsCountText");
+          if (sdrCred) sdrCred.innerText = st.user_credits_spent || 0;
+
+          const sdrAssigned = document.getElementById("sdrAssignedCountText");
+          if (sdrAssigned) sdrAssigned.innerText = st.assigned_companies_count || 0;
+
+          const sdrAllocSub = document.getElementById("allocBannerCount");
+          if (sdrAllocSub) sdrAllocSub.innerText = st.assigned_companies_count || 0;
+
+          // 3. Update Visual Segmented Progress Bar
+          const barUnl = document.getElementById("crmBarUnlocked");
+          const barRem = document.getElementById("crmBarRemaining");
+          const pctText = document.getElementById("crmProgressPercentText");
+          const pct = Math.min(Math.max(st.unlock_percentage || 0, 0), 100);
+          if (barUnl) barUnl.style.width = `${pct}%`;
+          if (barRem) barRem.style.width = `${100 - pct}%`;
+          if (pctText) pctText.innerText = `${pct}% Pipeline Unlocked`;
+
+          // 4. Update Quick Filter Pills
+          const pillAll = document.getElementById("pillFilterAll");
+          if (pillAll) pillAll.innerText = `All Leads (${st.total_leads || 0})`;
+
+          const pillUnl = document.getElementById("pillFilterUnlocked");
+          if (pillUnl) pillUnl.innerText = `✓ Unlocked (${st.unlocked_leads || 0})`;
+
+          const pillRem = document.getElementById("pillFilterLocked");
+          if (pillRem) pillRem.innerText = `🔒 Remaining to Unlock (${st.remaining_leads || 0})`;
+        }
+      } catch (err) {
+        console.error("Failed to refresh CRM pipeline stats:", err);
+      }
+    }
+
+    function setQuickStatusFilter(val) {
+      const sel = document.getElementById("peopleStatusFilter");
+      if (sel) {
+        sel.value = val;
+        fetchPeople(0);
+      }
+      ["pillFilterAll", "pillFilterUnlocked", "pillFilterLocked"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.style.boxShadow = "none";
+          el.style.borderWidth = "1px";
+        }
+      });
+      if (val === "all") {
+        const el = document.getElementById("pillFilterAll");
+        if (el) el.style.boxShadow = "0 0 8px rgba(56, 189, 248, 0.4)";
+      } else if (val === "unlocked") {
+        const el = document.getElementById("pillFilterUnlocked");
+        if (el) el.style.boxShadow = "0 0 8px rgba(16, 185, 129, 0.4)";
+      } else if (val === "locked") {
+        const el = document.getElementById("pillFilterLocked");
+        if (el) el.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.4)";
       }
     }
 
@@ -1566,7 +1711,7 @@
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUsersTableBody");
       if (!tbody) return;
-      tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>`;
 
       try {
         const res = await fetch("/api/admin/users");
@@ -1574,17 +1719,17 @@
         if (res.ok && data.users) {
           renderAdminUsers(data.users);
         } else {
-          tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:#ef4444;">${escapeHtml(data.error || "Failed to load users")}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:#ef4444;">${escapeHtml(data.error || "Failed to load users")}</td></tr>`;
         }
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:#ef4444;">Error: ${escapeHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:#ef4444;">Error: ${escapeHtml(e.message)}</td></tr>`;
       }
     }
 
     function renderAdminUsers(users) {
       const tbody = document.getElementById("adminUsersTableBody");
       if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No users configured.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No users configured.</td></tr>`;
         return;
       }
 
@@ -1597,6 +1742,15 @@
         const allocBadge = u.role === "admin"
           ? `<span style="color:#a5b4fc; font-size:12px; font-weight:600;">Full Database (All Accounts)</span>`
           : `<span class="badge" style="background:rgba(14, 165, 233, 0.15); color:#38bdf8; font-weight:700;">${u.assigned_companies_count || 0} Companies Allocated</span>`;
+
+        const pipelineBadge = u.role === "admin"
+          ? `<span style="color:#a5b4fc; font-size:12px; font-weight:600;">Global System (All Leads)</span>`
+          : `<div style="font-size:12px; line-height:1.4;">
+               <span style="color:#10b981; font-weight:700;">✓ ${u.unlocked_leads || 0} Unlocked</span>
+               <span style="color:var(--text-muted);"> · </span>
+               <span style="color:#f59e0b; font-weight:700;">🔒 ${u.remaining_leads || 0} Remaining</span>
+               <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${u.total_leads || 0} Total Leads (${u.unlock_percentage || 0}%)</div>
+             </div>`;
 
         const creditBadge = `<span class="badge" style="background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.3); color:#f59e0b; font-weight:700; cursor:pointer;" onclick="viewUserCreditHistory(${u.id}, '${escapeHtml(u.username)}')" title="Click to inspect full unlock audit history">⚡ ${u.credits_spent || 0} Credits 🔍</span>`;
 
@@ -1617,6 +1771,7 @@
             <td style="color:${u.full_name ? 'var(--text-main)' : 'var(--text-dim)'};">${escapeHtml(u.full_name || '-')}</td>
             <td>${roleBadge}</td>
             <td>${allocBadge}</td>
+            <td>${pipelineBadge}</td>
             <td>${creditBadge}</td>
             <td>
               <div style="display:flex; gap:6px; align-items:center;">
@@ -2614,19 +2769,27 @@
           ? `<span class="badge badge-complete" title="Discovered: ${escapeHtml(c.last_enriched || '')}">✓ Enriched (${c.total_candidates || (c.p1_count + c.p2_count)})</span>`
           : `<span class="badge badge-incomplete">Not Enriched</span>`;
 
+        const unlBadge = `<span class="badge" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10b981; font-weight:700;">✓ ${c.unlocked_count || 0}</span>`;
+        const remBadge = `<span class="badge" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); color:#f59e0b; font-weight:700;">🔒 ${c.remaining_count || 0}</span>`;
+
+        let enrichBtn = "";
+        if (currentUser && currentUser.role === "admin") {
+          enrichBtn = `<button class="btn btn-primary" id="btnEnrichComp_${c.id}" style="padding:4px 8px; font-size:11px;" onclick="enrichCompanyRow(${c.id}, '${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="Find P1 & P2 leaders for 0 credits">⚡ Enrich</button>`;
+        }
+
         html += `
           <tr>
             <td><strong>#${c.id}</strong></td>
             <td><strong>${escapeHtml(c.name)}</strong></td>
             <td>${domainLink}</td>
             <td><span class="badge-count">${c.event_count || 1} events</span></td>
-            <td>${p1Badge}</td>
-            <td>${p2Badge}</td>
-            <td>${statusBadge}</td>
+            <td><div style="display:flex; gap:4px; flex-wrap:wrap;">${p1Badge} ${p2Badge}</div></td>
+            <td>${unlBadge}</td>
+            <td>${remBadge}</td>
             <td>
               <div style="display:flex; gap:6px; align-items:center;">
-                <button class="btn btn-primary" id="btnEnrichComp_${c.id}" style="padding:4px 8px; font-size:11px;" onclick="enrichCompanyRow(${c.id}, '${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="Find P1 & P2 leaders for 0 credits">⚡ Enrich (0c)</button>
-                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="viewCompanyPeople('${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="View company leaders and creators in People tab">👥 People</button>
+                ${enrichBtn}
+                <button class="btn" style="padding:4px 8px; font-size:11px; background:rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.3); color:#38bdf8;" onclick="viewCompanyPeople('${escapeHtml(c.domain || '')}', '${escapeHtml(c.name || '')}')" title="View company leaders and creators in People tab">👥 Leads (${c.total_candidates || 0})</button>
               </div>
             </td>
           </tr>

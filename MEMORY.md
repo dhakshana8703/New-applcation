@@ -130,3 +130,22 @@ Implemented enterprise-grade authentication, role-based permissions, and company
 * **Clean SDR Outreach Workspace (UI Hardening):**
   - Apollo batch engine controls, API key previews, global credit spend, and raw candidate export buttons are completely hidden from SDR views.
   - Replaced with a modern, distraction-free **Outbound Outreach Pipeline** header displaying assigned account counts and personal unlocked lead counts.
+
+---
+
+## 9. CRM Outbound Portal & Lead Progress Tracking
+
+* **Real-Time CRM Lead Funnel Metrics (`/api/crm/stats` & `cvent_db.get_crm_pipeline_stats()`):**
+  - For each SDR rep, dynamically calculates across their allotted accounts:
+    - **Total Leads:** Combined Apollo candidate decision-makers + Cvent event creators.
+    - **Unlocked Leads:** Contacts with verified work email & LinkedIn ready for active email/calling campaigns.
+    - **Remaining Leads:** High-value prospects waiting for on-demand 1-click unlock.
+    - **Unlock Progress Percentage:** Dynamic % completed of the rep's allocated total target pool.
+* **SDR Interactive Command Center:**
+  - **4-Card KPI Funnel:** Target Accounts | Total Leads | Unlocked & Ready | Remaining to Unlock.
+  - **Segmented Visual Progress Bar:** Dual-colored progress bar dynamically displaying unlocked % vs remaining %.
+  - **Quick-Filter Action Pills:** 1-click instant switching between *All Leads*, *✓ Unlocked Only*, and *🔒 Remaining Only*.
+* **Company-Level CRM Lead Badging:**
+  - In the Companies tab, each account row explicitly displays `✓ Unlocked` and `🔒 Remaining` counts alongside a direct `👥 Leads (X)` action button.
+* **Admin Executive Overview:**
+  - In `👥 Team & Allocations`, Admin monitors real-time SDR progress through a dedicated **CRM Lead Pipeline** column displaying exact unlocked vs remaining counts for every rep.
