@@ -374,6 +374,22 @@ class ApolloEnricher:
                         target=person_id,
                         credits=1
                     )
+                    # Persist credit transaction in PostgreSQL
+                    try:
+                        import cvent_db
+                        p_name = person.get("name") or person.get("first_name", "Executive")
+                        p_dom = (person.get("organization") or {}).get("primary_domain") or ""
+                        cvent_db.record_user_credit_transaction(
+                            user_id=1,
+                            username="admin",
+                            action="batch_unlock_email",
+                            target_name=p_name,
+                            company_domain=p_dom,
+                            apollo_id=person_id,
+                            credits_spent=1
+                        )
+                    except Exception as pg_err:
+                        print(f"[Apollo PG Tracking] Warning: {pg_err}")
                     # Persist to SQLite cache
                     apollo_cache.set_cached_person(person_id, person)
                     if person.get("email"):

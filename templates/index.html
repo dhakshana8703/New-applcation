@@ -645,6 +645,11 @@
         <div class="stat-val" id="statTotalCompanies">...</div>
         <div class="stat-sub">316 verified corporate domains</div>
       </div>
+      <div class="stat-card" style="border-left: 3px solid #f59e0b;">
+        <div class="stat-label">⚡ Apollo Credits Spent</div>
+        <div class="stat-val" style="color: #f59e0b;" id="statApolloCreditsTotal">...</div>
+        <div class="stat-sub" id="statApolloCreditsSub">Audited in Neon PostgreSQL</div>
+      </div>
       <div class="stat-card" id="statScraperCard">
         <div class="stat-label">Scraper Engine</div>
         <div class="stat-val" style="font-size: 20px;" id="statScraperStatus">Idle</div>
@@ -1472,7 +1477,11 @@
             userAllocBadge.style.display = "inline-block";
             userAllocBadge.innerText = "All Accounts (Full DB)";
           }
-          if (userCreditBadge) userCreditBadge.style.display = "none";
+          if (userCreditBadge) {
+            userCreditBadge.style.display = "inline-block";
+            const spent = (currentUser.credits_spent !== undefined) ? currentUser.credits_spent : 0;
+            userCreditBadge.innerText = `⚡ ${spent} Credits Spent`;
+          }
         } else {
           // --- OUTREACH SDR / USER ROLE VIEW ---
           if (btnAdmin) btnAdmin.style.display = "none";
@@ -2233,6 +2242,11 @@
         document.getElementById("statTotalCompanies").innerText = Number(data.companies.total).toLocaleString();
         document.getElementById("tabBadgeCompanies").innerText = data.companies.total;
 
+        if (data.apollo) {
+          const el = document.getElementById("statApolloCreditsTotal");
+          if (el) el.innerText = `${Number(data.apollo.total_credits_spent || 0).toLocaleString()} Credits`;
+        }
+
         try {
           const cRes = await fetch("/api/apollo/candidates?limit=1");
           const cData = await cRes.json();
@@ -2736,7 +2750,13 @@
           const emailMsg = data.email ? data.email : "No email listed on Apollo";
           const linkedinMsg = (data.linkedin_url && data.linkedin_url !== "-") ? data.linkedin_url : "No LinkedIn profile on Apollo";
           alert(`⚡ Lead Unlocked (1 Apollo Credit Used)!\n\n• Name: ${data.name}\n• Title: ${data.title || '-'}\n• Verified Email: ${emailMsg}\n• LinkedIn: ${linkedinMsg}`);
+          if (currentUser) {
+            currentUser.credits_spent = (data.user_credits_spent !== undefined) ? data.user_credits_spent : ((currentUser.credits_spent || 0) + 1);
+            updateAuthUI();
+          }
           fetchPeople(currentPeopleOffset);
+          refreshCrmPipelineUI();
+          fetchOverviewStats();
           checkApolloStatus();
         }
       } catch (e) {
@@ -3130,6 +3150,8 @@
             apolloPollTimer = null;
           }
           checkApolloStatus();
+          fetchOverviewStats();
+          checkAuthStatus();
           fetchPeople(0); // Auto-refresh People table with newly enriched contacts!
         }
       } catch (err) {
@@ -3271,6 +3293,8 @@
             currentUser.credits_spent = data.user_credits_spent !== undefined ? data.user_credits_spent : ((currentUser.credits_spent || 0) + 1);
             updateAuthUI();
           }
+          refreshCrmPipelineUI();
+          fetchOverviewStats();
           if (currentUser && currentUser.role === "admin") {
             checkApolloStatus();
           }

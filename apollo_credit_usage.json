@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 57,
-  "last_updated": "2026-11-11T12:25:48.050161Z",
+  "total_credits_spent": 63,
+  "last_updated": "2026-11-11T13:14:15.158483Z",
   "breakdown": {
     "match_creator": 8,
     "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 37,
+    "unlock_work_email": 43,
     "search_persona_candidates": 0
   },
   "history": [
@@ -4858,6 +4858,66 @@
       "target": "5f0bd3e964b94b0001bacdff",
       "credits": 1,
       "cumulative_total": 57
+    },
+    {
+      "timestamp": "2026-11-11T13:12:21.384908Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54aba0757468693007c98a01",
+      "credits": 1,
+      "cumulative_total": 58
+    },
+    {
+      "timestamp": "2026-11-11T13:13:18.627280Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66f9b6589901a20001c82f55",
+      "credits": 1,
+      "cumulative_total": 59
+    },
+    {
+      "timestamp": "2026-11-11T13:13:20.371101Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54a830247468696b7f3cbf65",
+      "credits": 1,
+      "cumulative_total": 60
+    },
+    {
+      "timestamp": "2026-11-11T13:13:26.504449Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "5d5c59e0f651253c5936f1c5",
+      "credits": 1,
+      "cumulative_total": 61
+    },
+    {
+      "timestamp": "2026-11-11T13:14:01.907649Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "55c56e357369645cb59e1300",
+      "credits": 1,
+      "cumulative_total": 62
+    },
+    {
+      "timestamp": "2026-11-11T13:14:15.158483Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "66fb6b8c4b8262000112fce9",
+      "credits": 1,
+      "cumulative_total": 63
     }
   ]
 }

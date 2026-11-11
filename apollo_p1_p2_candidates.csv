@@ -5,6 +5,7 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 60a29f6b1e36ac000177a79d,AARP,aarp.org,Edna,,Edna,Executive Vice President/Chief Diversity Officer,P1,Unlocked,,http://www.linkedin.com/in/edna-kane-williams,68
 60a67d80e523e70001fe0268,AARP,aarp.org,Scott,,Scott,"EVP, Chief Operating Officer & Chief Financial Officer",P1,Unlocked,sfrisch@aarp.org,http://www.linkedin.com/in/scottfrisch,68
 60f148433757a900013b129b,AARP,aarp.org,Chryste,,Chryste,"Managing Director, Advocacy Outreach & Communications",P1,Unlocked,chhall@aarp.org,http://www.linkedin.com/in/chrystehall,68
+54aba0757468693007c98a01,AARP,aarp.org,Bill,,Bill Bmulligan,Operations Director,P2,Unlocked,,http://www.linkedin.com/in/bill-bmulligan-33942253,68
 54a4b1c17468693b8ca2aa5b,American Bar Association (ABA),americanbar.org,Selina,,Selina,"Managing Director, ABA Diversity, Equity and Inclusion Center",P1,Unlocked,selina.thomas@americanbar.org,http://www.linkedin.com/in/selina-thomas-4883a54,25
 54a62f5d74686938ac51ffc8,American Bar Association (ABA),americanbar.org,Jennifer,,Jennifer Perea,Managing Director,P1,Unlocked,,http://www.linkedin.com/in/jennifer-rosato-perea-26207353,25
 54aa73587468690b752c7d05,American Bar Association (ABA),americanbar.org,Rudy,,Rudy,Managing Director Designate,P1,Unlocked,,http://www.linkedin.com/in/rudy-perrino-8612329,25
@@ -20,14 +21,18 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 594696a3a6da989916ff6fb6,PAX8,pax8.com,Josh,,Josh Rodriguez,Founder | Fabricator | Sales Consultant,P1,Unlocked,jrodriguez@pax8.com,http://www.linkedin.com/in/joshua--rodriguez,7
 610137dba867c900016f939e,PAX8,pax8.com,Harald,,Harald Nuij,"Chief Executive Officer, EMEA",P1,Unlocked,hnuij@pax8.com,http://www.linkedin.com/in/harald-nuij,7
 66f178a1dd9d780001ef8e20,PAX8,pax8.com,John,,John Street,Founder and Chairman,P1,Unlocked,jstreet@pax8.com,http://www.linkedin.com/in/john-street-pax8,7
+54a830247468696b7f3cbf65,SIFMA,sifma.org,Bradley,,Bradley Edgell,Managing Director,P1,Unlocked,bedgell@sifma.org,http://www.linkedin.com/in/bradleyedgell,5
+5d5c59e0f651253c5936f1c5,SIFMA,sifma.org,Joe,,Joe Sack,Managing Director,P1,Unlocked,,http://www.linkedin.com/in/joe-sack-3a5339a,5
 5f0bd3e964b94b0001bacdff,Dentsplysirona,dentsplysirona.com,Bob,,Bob Leavens,Managing Director,P1,Unlocked,,http://www.linkedin.com/in/bob-leavens-b73ba7165,5
+66f9b6589901a20001c82f55,SIFMA,sifma.org,Annie,,Annie Farley,"Vice President, Conferences & Events",P1,Unlocked,afarley@sifma.org,http://www.linkedin.com/in/annemfarley,5
 54a8022974686975f82a4e5c,Sickkids,sickkids.ca,Ronald,,Ronald Cohn,President & CEO The Hospital,P1,Unlocked,ronald.cohn@sickkids.ca,http://www.linkedin.com/in/ronald-cohn-0426505,4
+66fb6b8c4b8262000112fce9,Philips,philips.com,Betty,,Betty Bestfin,Deputy CEO,P1,Unlocked,,http://www.linkedin.com/in/betty-bestfin-20267b214,4
+55c56e357369645cb59e1300,Wisc,wisc.edu,Adrienne,,Adrienne Pagac,Managing Director,P1,Unlocked,pagac@wisc.edu,http://www.linkedin.com/in/adrienne-pagac-914b0677,3
 6acdd2008fb0a50001d1682c,Akamai,akamai.com,Tom,,Tom Leighton,Co-founder & CEO,P1,Unlocked,ftl@akamai.com,http://www.linkedin.com/in/tleighton,2
 603dd8e8f2ece4000145b52e,Lhca,lhca.us,Kevin,,Kevin Latner,Senior Vice President,P1,Unlocked,kevin@usleather.org,http://www.linkedin.com/in/latner,1
 66f90044229f4e0001b29028,Msupply,msupply.com,Jennie,,Jennie Bryan,Regional Vice President,P1,Unlocked,jennie.bryan@msupply.com,http://www.linkedin.com/in/jennie-bryan-74a79a9,1
 6365da803e7ca50001d13a5d,AARP,aarp.org,Gloria,,Gloria James,President,P1,Unlocked,,http://www.linkedin.com/in/gloria-james-57029b82,0
 63c2521f64516c000171aa43,American Bar Association (ABA),americanbar.org,William,,William Adams,"Managing Director, Accreditation and Legal Education, American Bar Association",P1,Unlocked,william.adams@americanbar.org,http://www.linkedin.com/in/william-adams-378a9aa,0
-54aba0757468693007c98a01,AARP,aarp.org,Bill,,Bill,Operations Director,P2,Preview (0 credits),,,68
 5571496e7369642c11f73800,American Bar Association (ABA),americanbar.org,Stephanie,,Stephanie,Deputy Managing Director,P1,Preview (0 credits),,,25
 54a76b5274686975f8fa3533,CVENTEVENTS,medc.cventevents.com,Dan,,Dan,Senior Vice President / Co-Founder,P1,Preview (0 credits),,,23
 57d84fcaa6da98781f601954,CVENTEVENTS,medc.cventevents.com,Betty,,Betty,Vice President,P1,Preview (0 credits),,,23
@@ -78,7 +83,6 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 54a4f5437468692abffa2e71,Esource,esource.com,Leon,,Leon,"Managing Director, Data Strategy & Innovation",P1,Preview (0 credits),,,5
 54a54b327468693209d66e8c,Nfsa,nfsa.org,Shane,,Shane,President,P1,Preview (0 credits),,,5
 54a822167468696829320162,Esource,esource.com,Prajjaval,,Prajjaval,Vice President,P1,Preview (0 credits),,,5
-54a830247468696b7f3cbf65,SIFMA,sifma.org,Bradley,,Bradley,Managing Director,P1,Preview (0 credits),,,5
 54aa9f3974686908c81fd70e,Stanford,stanford.edu,Megan,,Megan,Associate Director and Chief Operating Officer,P1,Preview (0 credits),,,5
 54abeb857468692a6bbd1516,Esource,esource.com,Chad,,Chad,"Managing Director, Management Consulting",P1,Preview (0 credits),,,5
 54ec02fa746869444cc91a3d,Esource,esource.com,Eileen,,Eileen,Vice President,P1,Preview (0 credits),,,5
@@ -86,7 +90,6 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 55714554736964584f971200,Nfsa,nfsa.org,Michael,,Michael,Chief Operating Officer,P1,Preview (0 credits),,,5
 57d76992a6da984fef435ea4,Stanford,stanford.edu,Yehbin,,Yehbin,"Managing Director, Operations",P1,Preview (0 credits),,,5
 57e1cb34a6da98573f2899fc,Esource,esource.com,Antje,,Antje,Vice President,P1,Preview (0 credits),,,5
-5d5c59e0f651253c5936f1c5,SIFMA,sifma.org,Joe,,Joe,Managing Director,P1,Preview (0 credits),,,5
 5e73f30915710a00014d58a1,Esource,esource.com,Teresa,,Teresa,Managing Director Business Case and Regulatory Support,P1,Preview (0 credits),,,5
 5fdb099f297d730001e52bd3,SIFMA,sifma.org,Tom,,Tom,Managing Director,P1,Preview (0 credits),,,5
 5fdb09ee77a0cd0001ea7d0b,SIFMA,sifma.org,Tim,,Tim,Managing Director,P1,Preview (0 credits),,,5
@@ -100,7 +103,6 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 66f3f074614c52000109430d,SIFMA,sifma.org,Richard,,Richard,Managing Director,P1,Preview (0 credits),,,5
 66f5e8eaf88ca40001db7c79,Demarsemeetings,demarsemeetings.com,Stacy,,Stacy,Founder & CEO,P1,Preview (0 credits),,,5
 66f7391d233e220001486df3,SIFMA,sifma.org,Kate,,Kate,Managing Director,P1,Preview (0 credits),,,5
-66f9b6589901a20001c82f55,SIFMA,sifma.org,Annie,,Annie,"Vice President, Conferences & Events",P1,Preview (0 credits),,,5
 66fe49c3eadc1900017d0325,Stanford,stanford.edu,Pavlos,,Pavlos,Chief Operating Officer,P1,Preview (0 credits),,,5
 670a6eb099d3d90001245c1b,Dentsplysirona,dentsplysirona.com,Rene,,Rene,Managing Director und Director Operations,P1,Preview (0 credits),,,5
 6a70709a56a0970001c9e3e2,Dentsplysirona,dentsplysirona.com,Maxim,,Maxim,Managing Director Russia&CIS,P1,Preview (0 credits),,,5
@@ -127,7 +129,6 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 66f2afad97d1f600015b63e3,ASANA,asana.com,Dustin,,Dustin,Co-founder,P1,Preview (0 credits),,,4
 66f6c09793fdfd0001c65c87,ASANA,asana.com,Carol,,Carol,Administrative Business Partner to CEO,P1,Preview (0 credits),,,4
 66f7a8d0a26e730001857292,Philips,philips.com,Yuval,,Yuval,Service Portfolio Director,P1,Preview (0 credits),,,4
-66fb6b8c4b8262000112fce9,Philips,philips.com,Betty,,Betty,Deputy CEO,P1,Preview (0 credits),,,4
 6954ccbfc4d834000183602c,Jmu,jmu.edu,Taylor,,Taylor,ResQed President,P1,Preview (0 credits),,,4
 6acd8282e20c53000114a437,Jmu,jmu.edu,Samuel,,Samuel,President,P1,Preview (0 credits),,,4
 6acfa59c76d5f300014e17c4,Tianet,tianet.org,Daniel,,Daniel,Vice President Government Affairs,P1,Preview (0 credits),,,4
@@ -146,7 +147,6 @@ Apollo ID,Company Name,Domain,First Name,Last Name,Full Name,Title,Persona (P1/P
 54ec4dc1746869444c37427b,Aamc,aamc.org,Javarro,,Javarro,"Managing Director, Admissions and Testing Services",P1,Preview (0 credits),,,3
 557076287369642b59802100,ILLUMINA,illumina.com,Bhrigu,,Bhrigu,"Managing Director, Asia Pac",P1,Preview (0 credits),,,3
 55707b787369644e19a30500,Assaabloy,assaabloy.com,Avi,,Avi,Managing Director,P1,Preview (0 credits),,,3
-55c56e357369645cb59e1300,Wisc,wisc.edu,Adrienne,,Adrienne,Managing Director,P1,Preview (0 credits),,,3
 57d61e2aa6da98060151b733,SELINC,selinc.com,Kelsey,,Kelsey,President,P1,Preview (0 credits),,,3
 57d758e6a6da985bb8642474,SPGLOBAL,spglobal.com,Shashank,,Shashank,"Associate Director, Office of the CEO",P1,Preview (0 credits),,,3
 57de63e6a6da987b4563da25,Coronishealth,coronishealth.com,Steven,,Steven,Vice President,P1,Preview (0 credits),,,3

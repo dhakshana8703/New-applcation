@@ -483,3 +483,9 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T13:51:25.638177Z,,,unlock_work_email,/people/match,664f0df66ed1a90001c963c6,1,55
 2026-11-11T06:59:12.415489Z,,,unlock_work_email,/people/match,63c2521f64516c000171aa43,1,56
 2026-11-11T12:25:48.050161Z,,,unlock_work_email,/people/match,5f0bd3e964b94b0001bacdff,1,57
+2026-11-11T13:12:21.384908Z,,,unlock_work_email,/people/match,54aba0757468693007c98a01,1,58
+2026-11-11T13:13:18.627280Z,,,unlock_work_email,/people/match,66f9b6589901a20001c82f55,1,59
+2026-11-11T13:13:20.371101Z,,,unlock_work_email,/people/match,54a830247468696b7f3cbf65,1,60
+2026-11-11T13:13:26.504449Z,,,unlock_work_email,/people/match,5d5c59e0f651253c5936f1c5,1,61
+2026-11-11T13:14:01.907649Z,,,unlock_work_email,/people/match,55c56e357369645cb59e1300,1,62
+2026-11-11T13:14:15.158483Z,,,unlock_work_email,/people/match,66fb6b8c4b8262000112fce9,1,63

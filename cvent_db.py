@@ -398,6 +398,9 @@ def get_all_stats():
             "creators": people_row["creators"] if people_row else 0,
             "agencies": people_row["agencies"] if people_row else 0,
             "with_phone": people_row["with_phone"] if people_row else 0
+        },
+        "apollo": {
+            "total_credits_spent": get_total_system_credits_spent()
         }
     }
 
@@ -1725,6 +1728,16 @@ def record_user_credit_transaction(
         return False
 
 
+def get_total_system_credits_spent() -> int:
+    """Return cumulative total credits spent across all users and batch processes in PostgreSQL."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("SELECT COALESCE(SUM(credits_spent), 0) FROM cvent_credit_transactions")
+    row = cur.fetchone()
+    conn.close()
+    return int(_get_scalar(row, 0))
+
+
 def get_user_credits_spent(user_id: int) -> int:
     """Return total credits spent by a specific user."""
     if not user_id:
@@ -1996,7 +2009,8 @@ def get_crm_pipeline_stats(user_id=None) -> dict:
         "unlocked_leads": unlocked_leads,
         "remaining_leads": remaining_leads,
         "unlock_percentage": unlock_pct,
-        "user_credits_spent": get_user_credits_spent(user_id) if user_id else 0,
+        "user_credits_spent": get_user_credits_spent(user_id) if user_id else get_total_system_credits_spent(),
+        "total_system_credits": get_total_system_credits_spent(),
         "p1_total": p1_total,
         "p1_unlocked": p1_unlocked,
         "p1_remaining": p1_remaining,
