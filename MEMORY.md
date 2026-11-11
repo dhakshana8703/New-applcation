@@ -2,7 +2,7 @@
 
 *Workspace: C:\Users\hp\Desktop\cvent-scrapper*  
 *Last Updated: 2026-11-11*  
-*Current Commit: ee15b7c (Synced to both origin/main and manager/main)*  
+*Current Commit: a6371ff (Synced to both origin/main and manager/main)*  
 *Server Port: 5005 (http://127.0.0.1:5005) & Live on Render*
 
 ---
