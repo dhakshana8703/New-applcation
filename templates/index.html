@@ -1185,15 +1185,14 @@
         <div id="loginErrorMsg" style="display:none; padding:10px 14px; background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:6px; color:#fca5a5; font-size:12px;"></div>
         <div class="form-group">
           <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Username</label>
-          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. admin or username" autocomplete="username">
+          <input type="text" id="loginUsername" class="form-input" placeholder="Enter your username" autocomplete="username">
         </div>
         <div class="form-group">
           <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Password</label>
-          <input type="password" id="loginPassword" class="form-input" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitLogin()">
-        </div>
-        <div style="font-size:11px; color:var(--text-muted); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px 12px; border-radius:6px; line-height:1.5;">
-          • <strong>Admin Account:</strong> <code>admin</code> / <code>admin123</code><br>
-          • <strong>Outreach Rep:</strong> <code>dhakshana</code> / <code>user123</code>
+          <div style="position: relative;">
+            <input type="password" id="loginPassword" class="form-input" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitLogin()" style="padding-right: 38px;">
+            <button type="button" onclick="togglePasswordVisibility('loginPassword', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 4px;" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -1614,6 +1613,18 @@
       } else if (val === "locked") {
         const el = document.getElementById("pillFilterLocked");
         if (el) el.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.4)";
+      }
+    }
+
+    function togglePasswordVisibility(fieldId, btnEl) {
+      const field = document.getElementById(fieldId);
+      if (!field) return;
+      if (field.type === "password") {
+        field.type = "text";
+        if (btnEl) btnEl.innerText = "🙈";
+      } else {
+        field.type = "password";
+        if (btnEl) btnEl.innerText = "👁️";
       }
     }
 
