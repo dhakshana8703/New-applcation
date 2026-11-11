@@ -479,3 +479,6 @@ Timestamp,Event ID,Event Name,Action,Endpoint,Target,Credits Spent,Cumulative To
 2026-11-10T13:37:56.093705Z,16,American Bar Association (ABA),search_persona_candidates,/mixed_people/api_search,americanbar.org,0,53
 2026-11-10T13:38:03.941835Z,16,American Bar Association (ABA),search_persona_candidates,/mixed_people/api_search,americanbar.org,0,53
 2026-11-10T13:38:23.723342Z,238,National,search_persona_candidates,/mixed_people/api_search,national.alpfa.org,0,53
+2026-11-10T13:51:24.350329Z,,,unlock_work_email,/people/match,54a62f5d74686938ac51ffc8,1,54
+2026-11-10T13:51:25.638177Z,,,unlock_work_email,/people/match,664f0df66ed1a90001c963c6,1,55
+2026-11-11T06:59:12.415489Z,,,unlock_work_email,/people/match,63c2521f64516c000171aa43,1,56

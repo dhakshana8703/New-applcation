@@ -1,11 +1,11 @@
 {
-  "total_credits_spent": 53,
-  "last_updated": "2026-11-10T13:38:23.723342Z",
+  "total_credits_spent": 56,
+  "last_updated": "2026-11-11T06:59:12.415489Z",
   "breakdown": {
     "match_creator": 8,
     "enrich_organization": 12,
     "search_candidates": 0,
-    "unlock_work_email": 33,
+    "unlock_work_email": 36,
     "search_persona_candidates": 0
   },
   "history": [
@@ -4818,6 +4818,36 @@
       "target": "national.alpfa.org",
       "credits": 0,
       "cumulative_total": 53
+    },
+    {
+      "timestamp": "2026-11-10T13:51:24.350329Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "54a62f5d74686938ac51ffc8",
+      "credits": 1,
+      "cumulative_total": 54
+    },
+    {
+      "timestamp": "2026-11-10T13:51:25.638177Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "664f0df66ed1a90001c963c6",
+      "credits": 1,
+      "cumulative_total": 55
+    },
+    {
+      "timestamp": "2026-11-11T06:59:12.415489Z",
+      "event_id": null,
+      "event_name": "",
+      "action": "unlock_work_email",
+      "endpoint": "/people/match",
+      "target": "63c2521f64516c000171aa43",
+      "credits": 1,
+      "cumulative_total": 56
     }
   ]
 }
