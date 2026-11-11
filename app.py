@@ -331,10 +331,10 @@ def api_test_url():
 
 @app.route("/api/apollo/status", methods=["GET"])
 def api_apollo_status():
-    from apollo_enricher import ApolloEnricher, apollo_worker
+    from apollo_enricher import ApolloEnricher, apollo_worker, get_apollo_api_key
     from credit_tracker import credit_tracker
     enricher = ApolloEnricher()
-    key = os.environ.get("APOLLO_API_KEY", "").strip()
+    key = get_apollo_api_key()
     masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else ("Set" if key else "Not Set")
     summary = credit_tracker.get_summary()
     return jsonify({
@@ -437,6 +437,12 @@ def api_apollo_set_key():
     if not key:
         return jsonify({"error": "Empty API key provided"}), 400
     os.environ["APOLLO_API_KEY"] = key
+    key_path = os.path.join(os.path.dirname(__file__), ".apollo_key")
+    try:
+        with open(key_path, "w", encoding="utf-8") as f:
+            f.write(key)
+    except Exception:
+        pass
     return jsonify({"status": "ok", "message": "Apollo API key successfully saved!"})
 
 

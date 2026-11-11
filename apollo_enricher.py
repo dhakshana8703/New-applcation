@@ -44,6 +44,33 @@ from db_compat import get_db_connection
 from credit_tracker import credit_tracker
 import apollo_cache
 
+
+def get_apollo_api_key() -> str:
+    """Retrieve Apollo API key with multi-source fallback (env, .apollo_key, .env)."""
+    k = (os.environ.get("APOLLO_API_KEY") or "").strip()
+    if k:
+        return k
+    key_file = os.path.join(os.path.dirname(__file__), ".apollo_key")
+    if os.path.exists(key_file):
+        try:
+            with open(key_file, "r", encoding="utf-8") as f:
+                k = f.read().strip()
+                if k:
+                    return k
+        except Exception:
+            pass
+    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_file):
+        try:
+            from dotenv import dotenv_values
+            vals = dotenv_values(env_file)
+            k = (vals.get("APOLLO_API_KEY") or "").strip()
+            if k:
+                return k
+        except Exception:
+            pass
+    return ""
+
 APOLLO_API_BASE = "https://api.apollo.io/v1"
 CANDIDATES_CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apollo_p1_p2_candidates.csv")
 CANDIDATES_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apollo_p1_p2_candidates.json")
@@ -173,7 +200,7 @@ class ApolloEnricher:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = (api_key or os.environ.get("APOLLO_API_KEY", "")).strip()
+        self.api_key = (api_key or get_apollo_api_key()).strip()
         self.headers = {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache"
@@ -182,6 +209,7 @@ class ApolloEnricher:
             self.headers["X-Api-Key"] = self.api_key
 
         self.credits_spent = 0
+        self.last_error = ""
 
     def is_configured(self) -> bool:
         return bool(self.api_key and not self.api_key.startswith("mock"))
@@ -314,8 +342,10 @@ class ApolloEnricher:
     # API 4: Unlock Verified Work Email (1 credit per match, cached in SQLite)
     # --------------------------------------------------------------------------
     def unlock_work_email(self, person_id: str, event_id: Any = None, event_name: str = "") -> Optional[Dict[str, Any]]:
-        """Retrieve available work email with persistent cache."""
+        """Retrieve available work email with persistent cache and explicit error reporting."""
+        self.last_error = ""
         if not person_id:
+            self.last_error = "Missing contact person ID."
             return None
 
         # 1. Check local persistent SQLite cache
@@ -325,12 +355,13 @@ class ApolloEnricher:
             return cached_person
 
         if not self.is_configured():
+            self.last_error = "Apollo API Key is not set on this server. Please click 'Set Apollo Key' in the header or configure APOLLO_API_KEY in Render Environment Variables."
             return None
 
         url = f"{APOLLO_API_BASE}/people/match"
         payload = {"id": person_id}
         try:
-            r = requests.post(url, json=payload, headers=self.headers, timeout=12)
+            r = requests.post(url, json=payload, headers=self.headers, timeout=15)
             if r.status_code == 200:
                 self.credits_spent += 1
                 person = r.json().get("person")
@@ -348,7 +379,26 @@ class ApolloEnricher:
                     if person.get("email"):
                         apollo_cache.set_cached_person(person.get("email"), person)
                     return person
+                self.last_error = "Apollo returned 200 OK, but no person profile object was found."
+                return None
+            elif r.status_code == 401:
+                self.last_error = "Apollo API Key is unauthorized or expired (HTTP 401). Please verify your key."
+                return None
+            elif r.status_code == 422:
+                try:
+                    err_msg = r.json().get("error") or r.json().get("message") or r.text
+                except Exception:
+                    err_msg = r.text
+                self.last_error = f"Apollo Error (HTTP 422): {err_msg}"
+                return None
+            elif r.status_code == 429:
+                self.last_error = "Apollo API rate limit reached (HTTP 429). Please wait 30 seconds and retry."
+                return None
+            else:
+                self.last_error = f"Apollo returned HTTP {r.status_code}: {r.text[:200]}"
+                return None
         except Exception as e:
+            self.last_error = f"Network error connecting to Apollo: {str(e)}"
             print(f"[Apollo] unlock_work_email failed for {person_id}: {e}")
         return None
 
@@ -630,7 +680,7 @@ class ApolloEnricher:
         # 1. Unlock work email via Apollo /people/match (1 credit)
         profile = self.unlock_work_email(apollo_id)
         if not profile:
-            return {"error": "Could not unlock profile via Apollo or no email available"}
+            return {"error": self.last_error or "Could not unlock profile via Apollo or no email available"}
 
         fname = (profile.get("first_name") or "").strip()
         lname = (profile.get("last_name") or "").strip()
