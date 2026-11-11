@@ -597,13 +597,28 @@
       </div>
     </div>
 
-    <div class="header-right">
+    <div class="header-right" style="display: flex; align-items: center; gap: 10px;">
       <div class="status-pill">
         <span class="status-dot"></span>
         Neon PostgreSQL Connected
       </div>
-      <button class="btn btn-primary" onclick="openScraperModal()">
+      <!-- Current User Badge -->
+      <div id="userStatusPill" class="status-pill" style="display:none; background:rgba(14, 165, 233, 0.12); border-color:#0284c7; color:#38bdf8;">
+        <span style="font-size: 13px;">👤</span>
+        <span id="userBadgeName" style="font-weight: 600;">Guest</span>
+        <span id="userRoleBadge" class="badge" style="font-size: 10px; margin-left: 4px;">USER</span>
+      </div>
+      <!-- Admin Team & Allocation Button -->
+      <button class="btn" id="btnAdminTeam" onclick="openAdminTeamModal()" style="display:none; background:rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; font-weight: 600;">
+        👥 Team &amp; Allocations
+      </button>
+      <!-- Scraper Discovery Button -->
+      <button class="btn btn-primary" id="btnHeaderScraper" onclick="openScraperModal()">
         ⚡ Run Discovery Scraper
+      </button>
+      <!-- Auth Login/Logout Action -->
+      <button class="btn" id="btnAuthAction" onclick="handleAuthAction()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2);">
+        🔐 Login
       </button>
     </div>
   </header>
@@ -647,8 +662,8 @@
         Companies <span class="tab-badge" id="tabBadgeCompanies">...</span>
       </button>
 
-      <button class="tab-btn" onclick="switchTab('engine')">
-        Scraper & Diagnostics
+      <button class="tab-btn" id="tabBtnEngine" onclick="switchTab('engine')">
+        Scraper &amp; Diagnostics
       </button>
     </div>
 
@@ -856,6 +871,9 @@
 
     <!-- TAB 3: COMPANIES -->
     <div id="paneCompanies" class="tab-pane">
+      <div id="userAllocationBanner" style="display:none; margin-bottom:14px; padding:12px 18px; background:rgba(14, 165, 233, 0.12); border:1px solid rgba(14, 165, 233, 0.4); border-radius:8px; font-size:13px; color:#38bdf8;">
+        🏢 <strong>Assigned Corporate Accounts:</strong> You are viewing accounts explicitly allocated to you by Administrator.
+      </div>
       <div class="toolbar">
         <div class="toolbar-left">
           <input type="text" id="companySearch" class="search-input" placeholder="Search company, domain, email..." oninput="debounceCompanySearch()">
@@ -1061,8 +1079,686 @@
     </div>
   </div>
 
+  
+  <!-- ======================================================================= -->
+  <!-- USER MANAGEMENT & ALLOCATION MODALS                                     -->
+  <!-- ======================================================================= -->
+
+  <!-- Modal 1: Login -->
+  <div id="modalAuthLogin" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <div class="modal-title" style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          <span>🔐</span> Sign In to Cvent Intelligence
+        </div>
+        <button class="modal-close" onclick="closeModal('modalAuthLogin')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="loginErrorMsg" style="display:none; padding:10px 14px; background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:6px; color:#fca5a5; font-size:12px;"></div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Username</label>
+          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. admin or username" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Password</label>
+          <input type="password" id="loginPassword" class="form-input" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitLogin()">
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px 12px; border-radius:6px; line-height:1.5;">
+          • <strong>Admin Account:</strong> <code>admin</code> / <code>admin123</code><br>
+          • <strong>Standard Rep Account:</strong> <code>sdr_user</code> / <code>user123</code>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalAuthLogin')">Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitLogin" onclick="submitLogin()" style="font-weight:600;">Sign In ↗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Admin Team & Allocations -->
+  <div id="modalAdminTeam" class="modal-overlay">
+    <div class="modal-box" style="max-width: 880px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          <span>👥</span> Team Management &amp; Account Allocations
+        </div>
+        <button class="modal-close" onclick="closeModal('modalAdminTeam')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="font-size:13px; color:var(--text-muted);">
+            Manage SDR / sales rep accounts and allocate exclusive corporate accounts.
+          </div>
+          <button class="btn btn-primary" onclick="openCreateUserModal()" style="font-size:12px;">
+            ➕ Add Team Member
+          </button>
+        </div>
+
+        <div class="table-card" style="margin-top:10px;">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th width="40">ID</th>
+                  <th>Username</th>
+                  <th>Full Name</th>
+                  <th width="85">Role</th>
+                  <th>Allocated Accounts</th>
+                  <th width="260">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTableBody">
+                <tr><td colspan="6" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalAdminTeam')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Create User -->
+  <div id="modalCreateUser" class="modal-overlay">
+    <div class="modal-box" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-title" style="font-size:15px; font-weight:700;">➕ Create New Team Member</div>
+        <button class="modal-close" onclick="closeModal('modalCreateUser')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="createUserErrorMsg" style="display:none; padding:10px; background:rgba(239,68,68,0.15); border:1px solid #ef4444; border-radius:6px; color:#fca5a5; font-size:12px;"></div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Username *</label>
+          <input type="text" id="newUsername" class="form-input" placeholder="e.g. rep_david">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Initial Password *</label>
+          <input type="password" id="newPassword" class="form-input" placeholder="At least 4 characters">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Full Name (Optional)</label>
+          <input type="text" id="newFullName" class="form-input" placeholder="e.g. David Miller">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Role &amp; Permissions</label>
+          <select id="newRole" class="select-dropdown" style="width:100%;">
+            <option value="user" selected>Standard User (Only sees allocated companies)</option>
+            <option value="admin">Administrator (Full pipeline &amp; allocation access)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalCreateUser')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitCreateUser()">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Company Allocation Drawer -->
+  <div id="modalCompanyAllocation" class="modal-overlay">
+    <div class="modal-box" style="max-width: 820px; width: 95%;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="font-size:16px; font-weight:700;">🏢 Allocate Companies</div>
+          <div id="allocationUserSub" style="font-size:12px; color:var(--text-muted); margin-top:2px;"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modalCompanyAllocation')">✕</button>
+      </div>
+      <div class="modal-body" style="padding-bottom:10px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;">
+          <input type="text" id="allocationSearch" class="search-input" placeholder="Filter companies by name or domain..." oninput="filterAllocationList()" style="min-width:240px;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="selectAllFilteredCompanies()">Select All Filtered</button>
+            <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="deselectAllCompanies()">Deselect All</button>
+            <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="selectTopNCompanies(20)">Select Top 20</button>
+            <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="selectTopNCompanies(50)">Select Top 50</button>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-top:6px;">
+          <span id="allocationSelectedCountText" style="color:#38bdf8; font-weight:600;">0 companies selected</span>
+          <span id="allocationFilterSummaryText">Showing all 393 companies</span>
+        </div>
+
+        <div id="allocationCompaniesListContainer" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 6px; margin-top: 8px; background: rgba(0,0,0,0.2);">
+          <div style="padding: 20px; text-align: center; color: var(--text-muted);"><div class="spinner"></div> Loading company directory...</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:12px; color:#38bdf8;" id="allocationFooterSummary"></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal('modalCompanyAllocation')">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveAllocations" onclick="saveCompanyAllocations()" style="font-weight:600;">Save Allocations ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Change Password -->
+  <div id="modalChangePassword" class="modal-overlay">
+    <div class="modal-box" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title" style="font-size:15px; font-weight:700;">🔑 Change User Password</div>
+        <button class="modal-close" onclick="closeModal('modalChangePassword')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="changePasswordUserText" style="font-size:13px; color:#38bdf8; font-weight:600;"></div>
+        <div class="form-group" style="margin-top:10px;">
+          <label style="font-size:12px; color:var(--text-muted);">New Password</label>
+          <input type="password" id="changePasswordNew" class="form-input" placeholder="Enter at least 4 characters" onkeydown="if(event.key==='Enter') submitChangePassword()">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalChangePassword')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitChangePassword()">Update Password</button>
+      </div>
+    </div>
+  </div>
+
   <!-- JavaScript Client Logic -->
   <script>
+    
+    // =========================================================================
+    // AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC) JAVASCRIPT ENGINE
+    // =========================================================================
+    let currentUser = null;
+    let allCompaniesCacheForAllocation = [];
+    let activeAllocationUserId = null;
+    let activeAllocationSelectedIds = new Set();
+    let changePasswordTargetUserId = null;
+
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (data.logged_in && data.user) {
+          currentUser = data.user;
+          updateAuthUI();
+        } else {
+          currentUser = null;
+          updateAuthUI();
+          openModal("modalAuthLogin");
+        }
+      } catch (e) {
+        console.error("Auth check failed:", e);
+      }
+    }
+
+    function updateAuthUI() {
+      const userPill = document.getElementById("userStatusPill");
+      const userName = document.getElementById("userBadgeName");
+      const userRole = document.getElementById("userRoleBadge");
+      const btnAuth = document.getElementById("btnAuthAction");
+      const btnAdmin = document.getElementById("btnAdminTeam");
+      const btnScraper = document.getElementById("btnHeaderScraper");
+      const tabEngine = document.getElementById("tabBtnEngine");
+      const allocBanner = document.getElementById("userAllocationBanner");
+
+      if (currentUser) {
+        if (userPill) userPill.style.display = "inline-flex";
+        if (userName) userName.innerText = currentUser.full_name || currentUser.username;
+        if (userRole) {
+          userRole.innerText = (currentUser.role || "USER").toUpperCase();
+          userRole.className = currentUser.role === "admin" ? "badge badge-complete" : "badge badge-neutral";
+        }
+        if (btnAuth) {
+          btnAuth.innerText = "🚪 Logout";
+          btnAuth.title = `Signed in as ${currentUser.username} (${currentUser.role})`;
+        }
+
+        if (currentUser.role === "admin") {
+          if (btnAdmin) btnAdmin.style.display = "inline-flex";
+          if (btnScraper) btnScraper.style.display = "inline-flex";
+          if (tabEngine) tabEngine.style.display = "inline-block";
+          if (allocBanner) allocBanner.style.display = "none";
+        } else {
+          if (btnAdmin) btnAdmin.style.display = "none";
+          if (btnScraper) btnScraper.style.display = "none";
+          if (tabEngine) tabEngine.style.display = "none";
+          if (allocBanner) allocBanner.style.display = "block";
+        }
+      } else {
+        if (userPill) userPill.style.display = "none";
+        if (btnAdmin) btnAdmin.style.display = "none";
+        if (btnAuth) btnAuth.innerText = "🔐 Login";
+        if (allocBanner) allocBanner.style.display = "none";
+      }
+    }
+
+    function handleAuthAction() {
+      if (currentUser) {
+        if (confirm(`Log out from account ${currentUser.username}?`)) {
+          fetch("/api/auth/logout", { method: "POST" }).then(() => {
+            currentUser = null;
+            updateAuthUI();
+            openModal("modalAuthLogin");
+            fetchEvents(0);
+            fetchCompanies(0);
+            fetchPeople(0);
+            populateCompanyDropdown();
+          });
+        }
+      } else {
+        openModal("modalAuthLogin");
+      }
+    }
+
+    async function submitLogin() {
+      const uField = document.getElementById("loginUsername");
+      const pField = document.getElementById("loginPassword");
+      const errBox = document.getElementById("loginErrorMsg");
+      const btn = document.getElementById("btnSubmitLogin");
+
+      const username = (uField ? uField.value : "").trim();
+      const password = pField ? pField.value : "";
+
+      if (!username || !password) {
+        if (errBox) {
+          errBox.style.display = "block";
+          errBox.innerText = "Please provide both username and password.";
+        }
+        return;
+      }
+
+      if (errBox) errBox.style.display = "none";
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<div class="spinner" style="width:12px; height:12px; border-width:2px; display:inline-block; vertical-align:middle;"></div> Signing In...`;
+      }
+
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          currentUser = data.user;
+          updateAuthUI();
+          closeModal("modalAuthLogin");
+          if (uField) uField.value = "";
+          if (pField) pField.value = "";
+          // Refresh views with newly authenticated role
+          fetchEvents(0);
+          fetchCompanies(0);
+          fetchPeople(0);
+          fetchOverviewStats();
+          populateCompanyDropdown();
+        } else {
+          if (errBox) {
+            errBox.style.display = "block";
+            errBox.innerText = data.error || "Authentication failed. Check credentials.";
+          }
+        }
+      } catch (err) {
+        if (errBox) {
+          errBox.style.display = "block";
+          errBox.innerText = "Network error: " + err.message;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = "Sign In ↗";
+        }
+      }
+    }
+
+    // =========================================================================
+    // ADMIN TEAM MANAGEMENT FUNCTIONS
+    // =========================================================================
+    async function openAdminTeamModal() {
+      if (!currentUser || currentUser.role !== "admin") {
+        alert("Admin privileges required.");
+        return;
+      }
+      openModal("modalAdminTeam");
+      loadAdminUsers();
+    }
+
+    async function loadAdminUsers() {
+      const tbody = document.getElementById("adminUsersTableBody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><div class="spinner"></div> Loading team members...</td></tr>`;
+
+      try {
+        const res = await fetch("/api/admin/users");
+        const data = await res.json();
+        if (res.ok && data.users) {
+          renderAdminUsers(data.users);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:#ef4444;">${escapeHtml(data.error || "Failed to load users")}</td></tr>`;
+        }
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:#ef4444;">Error: ${escapeHtml(e.message)}</td></tr>`;
+      }
+    }
+
+    function renderAdminUsers(users) {
+      const tbody = document.getElementById("adminUsersTableBody");
+      if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No users configured.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      users.forEach(u => {
+        const roleBadge = u.role === "admin"
+          ? `<span class="badge badge-complete">ADMIN</span>`
+          : `<span class="badge badge-neutral">SDR / USER</span>`;
+
+        const allocBadge = u.role === "admin"
+          ? `<span style="color:#a5b4fc; font-size:12px; font-weight:600;">Full Database (All Accounts)</span>`
+          : `<span class="badge" style="background:rgba(14, 165, 233, 0.15); color:#38bdf8; font-weight:700;">${u.assigned_companies_count || 0} Companies Allocated</span>`;
+
+        let deleteBtn = "";
+        if (currentUser && currentUser.id !== u.id) {
+          deleteBtn = `<button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteUserAccount(${u.id}, '${escapeHtml(u.username)}')">🗑️</button>`;
+        }
+
+        let allocBtn = "";
+        if (u.role !== "admin") {
+          allocBtn = `<button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="openCompanyAllocationModal(${u.id}, '${escapeHtml(u.username)}', '${escapeHtml(u.full_name || '')}')">🏢 Allocate (${u.assigned_companies_count || 0})</button>`;
+        }
+
+        html += `
+          <tr>
+            <td><strong>#${u.id}</strong></td>
+            <td><strong>${escapeHtml(u.username)}</strong></td>
+            <td style="color:${u.full_name ? 'var(--text-main)' : 'var(--text-dim)'};">${escapeHtml(u.full_name || '-')}</td>
+            <td>${roleBadge}</td>
+            <td>${allocBadge}</td>
+            <td>
+              <div style="display:flex; gap:6px; align-items:center;">
+                ${allocBtn}
+                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openChangePasswordModal(${u.id}, '${escapeHtml(u.username)}')">🔑 Password</button>
+                ${deleteBtn}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function openCreateUserModal() {
+      const errBox = document.getElementById("createUserErrorMsg");
+      if (errBox) errBox.style.display = "none";
+      const uField = document.getElementById("newUsername");
+      const pField = document.getElementById("newPassword");
+      const nField = document.getElementById("newFullName");
+      if (uField) uField.value = "";
+      if (pField) pField.value = "";
+      if (nField) nField.value = "";
+      openModal("modalCreateUser");
+    }
+
+    async function submitCreateUser() {
+      const u = (document.getElementById("newUsername") ? document.getElementById("newUsername").value : "").trim();
+      const p = document.getElementById("newPassword") ? document.getElementById("newPassword").value : "";
+      const fn = (document.getElementById("newFullName") ? document.getElementById("newFullName").value : "").trim();
+      const role = document.getElementById("newRole") ? document.getElementById("newRole").value : "user";
+      const errBox = document.getElementById("createUserErrorMsg");
+
+      if (!u || !p) {
+        if (errBox) {
+          errBox.style.display = "block";
+          errBox.innerText = "Username and password are required.";
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: u, password: p, full_name: fn, role: role })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          alert(`✓ User '${u}' created successfully!`);
+          closeModal("modalCreateUser");
+          loadAdminUsers();
+        } else {
+          if (errBox) {
+            errBox.style.display = "block";
+            errBox.innerText = data.error || "Failed to create user";
+          }
+        }
+      } catch (e) {
+        if (errBox) {
+          errBox.style.display = "block";
+          errBox.innerText = "Network error: " + e.message;
+        }
+      }
+    }
+
+    async function deleteUserAccount(userId, username) {
+      if (!confirm(`Are you sure you want to permanently delete user account '${username}'?`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`User '${username}' deleted.`);
+          loadAdminUsers();
+        } else {
+          alert(`Error: ${data.error || "Failed to delete user"}`);
+        }
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    }
+
+    function openChangePasswordModal(userId, username) {
+      changePasswordTargetUserId = userId;
+      const title = document.getElementById("changePasswordUserText");
+      if (title) title.innerText = `Changing password for user: ${username}`;
+      const pField = document.getElementById("changePasswordNew");
+      if (pField) pField.value = "";
+      openModal("modalChangePassword");
+    }
+
+    async function submitChangePassword() {
+      if (!changePasswordTargetUserId) return;
+      const pField = document.getElementById("changePasswordNew");
+      const password = pField ? pField.value : "";
+      if (!password || password.length < 4) {
+        alert("Password must be at least 4 characters.");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/users/${changePasswordTargetUserId}/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          alert("Password updated successfully!");
+          closeModal("modalChangePassword");
+        } else {
+          alert(`Error: ${data.error || "Failed to update password"}`);
+        }
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    }
+
+    // =========================================================================
+    // COMPANY ALLOCATION DRAWER & INTERACTION ENGINE
+    // =========================================================================
+    async function openCompanyAllocationModal(userId, username, fullName) {
+      activeAllocationUserId = userId;
+      const sub = document.getElementById("allocationUserSub");
+      if (sub) {
+        sub.innerHTML = `Allocating companies for: <strong>${escapeHtml(username)}</strong> ${fullName ? '(' + escapeHtml(fullName) + ')' : ''}`;
+      }
+      openModal("modalCompanyAllocation");
+
+      const container = document.getElementById("allocationCompaniesListContainer");
+      if (container) {
+        container.innerHTML = `<div style="padding: 25px; text-align: center; color: var(--text-muted);"><div class="spinner"></div> Loading full company directory and current assignments...</div>`;
+      }
+
+      try {
+        // 1. Fetch user's currently assigned company IDs
+        const resAssigned = await fetch(`/api/admin/users/${userId}/companies`);
+        const dataAssigned = await resAssigned.json();
+        activeAllocationSelectedIds = new Set(dataAssigned.assigned_company_ids || []);
+
+        // 2. Fetch full lightweight company lookup if not cached
+        if (!allCompaniesCacheForAllocation || allCompaniesCacheForAllocation.length === 0) {
+          const resLookup = await fetch("/api/admin/companies-lookup");
+          const dataLookup = await resLookup.json();
+          allCompaniesCacheForAllocation = dataLookup.companies || [];
+        }
+
+        renderAllocationCompanyList();
+      } catch (e) {
+        if (container) {
+          container.innerHTML = `<div style="padding: 20px; color: #ef4444;">Error loading allocation data: ${escapeHtml(e.message)}</div>`;
+        }
+      }
+    }
+
+    function renderAllocationCompanyList() {
+      const container = document.getElementById("allocationCompaniesListContainer");
+      if (!container) return;
+
+      const filterText = (document.getElementById("allocationSearch") ? document.getElementById("allocationSearch").value : "").toLowerCase().trim();
+      const filtered = allCompaniesCacheForAllocation.filter(c => {
+        if (!filterText) return true;
+        return (c.name || "").toLowerCase().includes(filterText) || (c.domain || "").toLowerCase().includes(filterText);
+      });
+
+      // Update counters
+      const counterText = document.getElementById("allocationSelectedCountText");
+      if (counterText) {
+        counterText.innerText = `${activeAllocationSelectedIds.size} of ${allCompaniesCacheForAllocation.length} companies selected`;
+      }
+
+      const summaryText = document.getElementById("allocationFilterSummaryText");
+      if (summaryText) {
+        summaryText.innerText = filterText ? `Showing ${filtered.length} matching filter` : `Showing all ${allCompaniesCacheForAllocation.length} companies`;
+      }
+
+      const footerSummary = document.getElementById("allocationFooterSummary");
+      if (footerSummary) {
+        footerSummary.innerText = `Ready to save ${activeAllocationSelectedIds.size} assigned companies`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding: 25px; text-align: center; color: var(--text-muted);">No companies match search filter '${escapeHtml(filterText)}'</div>`;
+        return;
+      }
+
+      let html = `<div style="display:flex; flex-direction:column; divide-y:1px solid var(--card-border);">`;
+      filtered.forEach(c => {
+        const isChecked = activeAllocationSelectedIds.has(c.id);
+        const candStr = c.total_candidates ? `<span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; font-size:10px;">${c.total_candidates} leads</span>` : "";
+        const evStr = `<span class="badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; font-size:10px;">${c.event_count || 0} events</span>`;
+
+        html += `
+          <label style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.15s; background: ${isChecked ? 'rgba(14, 165, 233, 0.08)' : 'transparent'};" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isChecked ? 'rgba(14, 165, 233, 0.08)' : 'transparent'}'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--primary);" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="toggleCompanyAllocationSelection(${c.id}, this.checked)">
+              <div>
+                <strong style="font-size: 13px; color: #f1f5f9;">${escapeHtml(c.name)}</strong>
+                <span style="font-size: 11px; color: var(--text-muted); margin-left: 6px;">(${escapeHtml(c.domain)})</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              ${candStr}
+              ${evStr}
+            </div>
+          </label>
+        `;
+      });
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function toggleCompanyAllocationSelection(companyId, checked) {
+      if (checked) {
+        activeAllocationSelectedIds.add(companyId);
+      } else {
+        activeAllocationSelectedIds.delete(companyId);
+      }
+      // Quick counter update without full re-render
+      const counterText = document.getElementById("allocationSelectedCountText");
+      if (counterText) {
+        counterText.innerText = `${activeAllocationSelectedIds.size} of ${allCompaniesCacheForAllocation.length} companies selected`;
+      }
+      const footerSummary = document.getElementById("allocationFooterSummary");
+      if (footerSummary) {
+        footerSummary.innerText = `Ready to save ${activeAllocationSelectedIds.size} assigned companies`;
+      }
+    }
+
+    function filterAllocationList() {
+      renderAllocationCompanyList();
+    }
+
+    function selectAllFilteredCompanies() {
+      const filterText = (document.getElementById("allocationSearch") ? document.getElementById("allocationSearch").value : "").toLowerCase().trim();
+      const filtered = allCompaniesCacheForAllocation.filter(c => {
+        if (!filterText) return true;
+        return (c.name || "").toLowerCase().includes(filterText) || (c.domain || "").toLowerCase().includes(filterText);
+      });
+      filtered.forEach(c => activeAllocationSelectedIds.add(c.id));
+      renderAllocationCompanyList();
+    }
+
+    function deselectAllCompanies() {
+      activeAllocationSelectedIds.clear();
+      renderAllocationCompanyList();
+    }
+
+    function selectTopNCompanies(n) {
+      activeAllocationSelectedIds.clear();
+      // Companies in lookup are pre-sorted by event count descending
+      const topSlice = allCompaniesCacheForAllocation.slice(0, n);
+      topSlice.forEach(c => activeAllocationSelectedIds.add(c.id));
+      renderAllocationCompanyList();
+    }
+
+    async function saveCompanyAllocations() {
+      if (!activeAllocationUserId) return;
+      const btn = document.getElementById("btnSaveAllocations");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<div class="spinner" style="width:12px; height:12px; border-width:2px; display:inline-block; vertical-align:middle;"></div> Saving...`;
+      }
+
+      try {
+        const companyIds = Array.from(activeAllocationSelectedIds);
+        const res = await fetch(`/api/admin/users/${activeAllocationUserId}/companies`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company_ids: companyIds })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          alert(`✓ Successfully allocated ${companyIds.length} corporate accounts to user!`);
+          closeModal("modalCompanyAllocation");
+          loadAdminUsers();
+        } else {
+          alert(`Error saving allocations: ${data.error || "Unknown error"}`);
+        }
+      } catch (e) {
+        alert("Network error: " + e.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = "Save Allocations ✓";
+        }
+      }
+    }
+
     let currentEventOffset = 0;
     let eventLimit = 25;
     let currentPeopleOffset = 0;
@@ -1101,6 +1797,7 @@
     let companiesLoaded = false;
 
     document.addEventListener("DOMContentLoaded", () => {
+      checkAuthStatus();
       fetchOverviewStats();
       fetchEvents(0);
       populateCompanyDropdown();

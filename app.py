@@ -12,7 +12,7 @@ import re
 import csv
 import io
 import secrets
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, session
 
 import cvent_db
 import cvent_engine
@@ -20,6 +20,26 @@ import cvent_engine
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cvent-secret-key-isolated-engine")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# Initialize tables and default admin on startup
+cvent_db.init_user_tables()
+
+def get_current_user():
+    """Retrieve current logged-in user from session."""
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    return cvent_db.get_user_by_id(uid)
+
+def get_effective_user_id():
+    """Return user_id for filtering, or None if admin or unauthenticated."""
+    u = get_current_user()
+    if not u:
+        return None
+    if u.get("role") == "admin":
+        return None
+    return u.get("id")
+
 
 
 # ==============================================================================
@@ -92,13 +112,15 @@ def api_get_events():
     sort_by = request.args.get("sort_by", "default")
     sort_dir = request.args.get("sort_dir", "asc")
 
+    effective_uid = get_effective_user_id()
     data = cvent_db.get_all_cvent_events(
         limit=limit,
         offset=offset,
         search=search,
         status_filter=status_filter,
         sort_by=sort_by,
-        sort_dir=sort_dir
+        sort_dir=sort_dir,
+        user_id=effective_uid
     )
     return jsonify(data)
 
@@ -134,7 +156,8 @@ def api_bulk_delete_events():
 
 @app.route("/api/events/export", methods=["GET"])
 def api_export_events_csv():
-    csv_data = cvent_db.export_cvent_events_csv()
+    effective_uid = get_effective_user_id()
+    csv_data = cvent_db.export_cvent_events_csv(user_id=effective_uid)
     return Response(
         csv_data,
         mimetype="text/csv",
@@ -153,11 +176,13 @@ def api_get_companies():
     search = request.args.get("search", "")
     filter_type = request.args.get("filter", "all")
 
+    effective_uid = get_effective_user_id()
     data = cvent_db.get_all_cvent_companies(
         limit=limit,
         offset=offset,
         search=search,
-        filter_type=filter_type
+        filter_type=filter_type,
+        user_id=effective_uid
     )
     return jsonify(data)
 
@@ -220,6 +245,7 @@ def api_get_people():
         except ValueError:
             event_id = None
 
+    effective_uid = get_effective_user_id()
     data = cvent_db.get_unified_people(
         limit=limit,
         offset=offset,
@@ -228,7 +254,8 @@ def api_get_people():
         persona_filter=persona,
         status_filter=status,
         contact_type_filter=contact_type,
-        event_id=event_id
+        event_id=event_id,
+        user_id=effective_uid
     )
     return jsonify(data)
 
@@ -248,6 +275,7 @@ def api_export_people_csv():
         except ValueError:
             event_id = None
 
+    effective_uid = get_effective_user_id()
     csv_data = cvent_db.export_cvent_people_csv(
         is_creator_filter=is_creator,
         contact_type_filter=contact_type,
@@ -255,7 +283,8 @@ def api_export_people_csv():
         event_id=event_id,
         company_domain=company_domain,
         persona_filter=persona,
-        status_filter=status
+        status_filter=status,
+        user_id=effective_uid
     )
     filename = f"cvent_people_{company_domain}.csv" if company_domain and company_domain != "all" else "cvent_people_export.csv"
     return Response(
@@ -350,7 +379,8 @@ def api_apollo_status():
 @app.route("/api/companies/domains-list", methods=["GET"])
 def api_get_companies_domains_list():
     """Return all unique company domains with candidate counts for dropdown."""
-    data = cvent_db.get_company_domains_list()
+    effective_uid = get_effective_user_id()
+    data = cvent_db.get_company_domains_list(user_id=effective_uid)
     return jsonify(data)
 
 
@@ -578,3 +608,135 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5005))
     print(f"[*] Cvent Intelligence Engine running on http://127.0.0.1:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
+# ==============================================================================
+# AUTHENTICATION & SESSION MANAGEMENT API
+# ==============================================================================
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    """Authenticate user and create session."""
+    payload = request.get_json() or {}
+    username = payload.get("username", "").strip()
+    password = payload.get("password", "")
+    res = cvent_db.authenticate_user(username, password)
+    if "error" in res:
+        return jsonify(res), 401
+    session["user_id"] = res["id"]
+    session["username"] = res["username"]
+    session["role"] = res["role"]
+    session.permanent = True
+    return jsonify({"status": "ok", "user": res})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_auth_logout():
+    """Clear user session."""
+    session.clear()
+    return jsonify({"status": "ok", "message": "Logged out successfully"})
+
+
+@app.route("/api/auth/me", methods=["GET"])
+def api_auth_me():
+    """Return current session authentication status."""
+    u = get_current_user()
+    if not u:
+        return jsonify({"logged_in": False, "user": None})
+    return jsonify({"logged_in": True, "user": u})
+
+
+# ==============================================================================
+# ADMIN: USER & COMPANY ALLOCATION MANAGEMENT API
+# ==============================================================================
+
+@app.route("/api/admin/users", methods=["GET"])
+def api_admin_get_users():
+    """Get all users with company counts (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    users = cvent_db.get_all_users()
+    return jsonify({"users": users})
+
+
+@app.route("/api/admin/users", methods=["POST"])
+def api_admin_create_user():
+    """Create new user account (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    payload = request.get_json() or {}
+    res = cvent_db.create_user(
+        username=payload.get("username"),
+        password=payload.get("password"),
+        full_name=payload.get("full_name", ""),
+        role=payload.get("role", "user")
+    )
+    if "error" in res:
+        return jsonify(res), 400
+    return jsonify({"status": "ok", "user": res})
+
+
+@app.route("/api/admin/users/<int:target_user_id>", methods=["DELETE"])
+def api_admin_delete_user(target_user_id):
+    """Delete a user account (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    if u["id"] == target_user_id:
+        return jsonify({"error": "You cannot delete your own admin account"}), 400
+    cvent_db.delete_user(target_user_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/admin/users/<int:target_user_id>/password", methods=["POST"])
+def api_admin_update_password(target_user_id):
+    """Change password for a user account (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    payload = request.get_json() or {}
+    new_pass = payload.get("password", "")
+    res = cvent_db.update_user_password(target_user_id, new_pass)
+    if "error" in res:
+        return jsonify(res), 400
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/admin/users/<int:target_user_id>/companies", methods=["GET"])
+def api_admin_get_user_companies(target_user_id):
+    """Get company IDs assigned to user (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    assigned_ids = cvent_db.get_user_assigned_company_ids(target_user_id)
+    return jsonify({"user_id": target_user_id, "assigned_company_ids": assigned_ids})
+
+
+@app.route("/api/admin/users/<int:target_user_id>/companies", methods=["POST"])
+def api_admin_set_user_companies(target_user_id):
+    """Replace full set of assigned companies for user (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    payload = request.get_json() or {}
+    company_ids = payload.get("company_ids", [])
+    res = cvent_db.set_user_company_assignments(target_user_id, company_ids)
+    return jsonify(res)
+
+
+@app.route("/api/admin/companies-lookup", methods=["GET"])
+def api_admin_companies_lookup():
+    """Lightweight lookup of all companies for allocation modal (Admin only)."""
+    u = get_current_user()
+    if not u or u.get("role") != "admin":
+        return jsonify({"error": "Admin privileges required"}), 403
+    res = cvent_db.get_all_cvent_companies(limit=1000, offset=0, user_id=None)
+    comps = [{
+        "id": c["id"],
+        "name": c["name"],
+        "domain": c["domain"],
+        "event_count": c.get("event_count", 0),
+        "total_candidates": c.get("total_candidates", 0)
+    } for c in res.get("companies", [])]
+    return jsonify({"companies": comps, "total": len(comps)})

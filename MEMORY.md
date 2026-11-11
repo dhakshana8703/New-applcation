@@ -94,3 +94,23 @@ The `People` tab (`templates/index.html` + `cvent_db.get_unified_people()`) incl
   - `origin`: `https://github.com/dhakshana8703/New-applcation.git`
   - `manager`: `https://github.com/silverbu11et/Nunify-Outbound.git`
 * **Cloud Hosting:** Render Web Service deploying via `Procfile` (`gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4`).
+
+---
+
+## 7. Role-Based Access Control (RBAC) & Team Company Allocation
+
+Implemented enterprise-grade authentication, role-based permissions, and company partitioning:
+
+* **Roles:**
+  - `admin`: Full unrestricted access to all 393 companies, 761 events, and 2,891 people. Access to Admin Team Management modal, company allocation modal, password reset, user provisioning/deprovisioning, and scraper diagnostics.
+  - `user` (Normal User / SDR): Strictly partitioned access. Only sees companies explicitly allocated to them by an admin, along with the corresponding people and events. The Scraper tab and Admin management actions are completely hidden in the UI and protected on backend endpoints with 403 Forbidden.
+* **Database Schema (Neon PostgreSQL):**
+  - `cvent_users`: User directory (`id`, `username`, `password_hash`, `full_name`, `role`, `is_active`, `created_at`, `updated_at`).
+  - `cvent_user_company_assignments`: Many-to-many allocation (`id`, `user_id`, `company_id`, `assigned_at`, `UNIQUE(user_id, company_id)`).
+* **Company Allocation Engine:**
+  - Admin modal with real-time text search across 393 companies.
+  - Batch assignment buttons: "Select All Filtered", "Deselect All", "Select Top 20", "Select Top 50".
+  - Live selection counter and instant save.
+* **Default Seeded Accounts:**
+  - Admin: `admin` / `admin123`
+  - SDR User: `sdr_user` / `user123`

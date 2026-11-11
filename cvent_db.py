@@ -257,7 +257,7 @@ def upsert_cvent_event(data):
     return event_id
 
 
-def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sort_by="default", sort_dir="asc"):
+def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sort_by="default", sort_dir="asc", user_id=None):
     """Fetch paginated, filtered Cvent events from the 'cvent' table."""
     conn = get_connection()
     conditions = []
@@ -277,6 +277,12 @@ def get_all_cvent_events(limit=50, offset=0, search="", status_filter="all", sor
     if status_filter and status_filter != "all":
         conditions.append("c.status = ?")
         params.append(status_filter)
+
+    if user_id is not None:
+        assigned_ids = get_user_assigned_company_ids(user_id)
+        if not assigned_ids:
+            return {"events": [], "total": 0, "limit": limit, "offset": offset}
+        conditions.append(f"c.company_id IN ({','.join(str(i) for i in assigned_ids)})")
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -713,7 +719,7 @@ def extract_companies_from_cvent(event_ids: list = None) -> dict:
     return {"created": created, "linked": linked, "total": total_companies}
 
 
-def get_all_cvent_companies(limit=50, offset=0, search="", filter_type="all"):
+def get_all_cvent_companies(limit=50, offset=0, search="", filter_type="all", user_id=None):
     """Get all Cvent companies with event counts and pagination."""
     conn = get_connection()
     conditions = ["1=1"]
@@ -728,6 +734,12 @@ def get_all_cvent_companies(limit=50, offset=0, search="", filter_type="all"):
         conditions.append("c.email != '' AND c.email IS NOT NULL")
     elif filter_type == "with_domain":
         conditions.append("c.domain != '' AND c.domain IS NOT NULL")
+
+    if user_id is not None:
+        assigned_ids = get_user_assigned_company_ids(user_id)
+        if not assigned_ids:
+            return {"companies": [], "total": 0, "limit": limit, "offset": offset}
+        conditions.append(f"c.id IN ({','.join(str(i) for i in assigned_ids)})")
 
     where_clause = " AND ".join(conditions)
 
@@ -841,7 +853,7 @@ def delete_cvent_company(company_id: int):
 # CSV EXPORT UTILITIES
 # ==============================================================================
 
-def export_cvent_events_csv(event_ids: list = None) -> str:
+def export_cvent_events_csv(event_ids: list = None, user_id=None) -> str:
     """Export Cvent events to CSV with exact fields requested."""
     conn = get_connection()
     sql = """
@@ -863,7 +875,13 @@ def export_cvent_events_csv(event_ids: list = None) -> str:
         placeholders = ",".join("?" for _ in event_ids)
         rows = conn.execute(f"{sql} WHERE c.id IN ({placeholders}) ORDER BY c.id ASC", tuple(event_ids)).fetchall()
     else:
-        rows = conn.execute(f"{sql} ORDER BY c.id ASC").fetchall()
+        if user_id is not None:
+            assigned_ids = get_user_assigned_company_ids(user_id)
+            if not assigned_ids:
+                return ""
+            rows = conn.execute(f"{sql} WHERE c.company_id IN ({','.join(str(i) for i in assigned_ids)}) ORDER BY c.id ASC").fetchall()
+        else:
+            rows = conn.execute(f"{sql} ORDER BY c.id ASC").fetchall()
     conn.close()
 
     csv_fields = [
@@ -1196,7 +1214,8 @@ def export_cvent_people_csv(
     event_id=None,
     company_domain="all",
     persona_filter="all",
-    status_filter="all"
+    status_filter="all",
+    user_id=None
 ) -> str:
     """Export unified people (Cvent Creators + Apollo Discovered Leaders) matching active filters."""
     res = get_unified_people(
@@ -1207,7 +1226,8 @@ def export_cvent_people_csv(
         persona_filter=persona_filter,
         status_filter=status_filter,
         contact_type_filter=contact_type_filter,
-        event_id=event_id
+        event_id=event_id,
+        user_id=user_id
     )
     people = res["people"]
 
@@ -1240,15 +1260,22 @@ def export_cvent_people_csv(
 
 
 
-def get_company_domains_list():
+def get_company_domains_list(user_id=None):
     """Return all unique company domains with candidate counts for dropdown."""
+    extra_filter = ""
+    if user_id is not None:
+        assigned_ids = get_user_assigned_company_ids(user_id)
+        if not assigned_ids:
+            return []
+        extra_filter = f"AND c.id IN ({','.join(str(i) for i in assigned_ids)})"
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(f"""
         SELECT c.id, c.name, c.domain, COUNT(cv.id) as event_count
         FROM cvent_companies c
         LEFT JOIN cvent cv ON cv.company_id = c.id
-        WHERE c.domain != '' AND c.domain IS NOT NULL
+        WHERE c.domain != '' AND c.domain IS NOT NULL {extra_filter}
         GROUP BY c.id, c.name, c.domain
         ORDER BY event_count DESC, c.name ASC
     """)
@@ -1286,7 +1313,8 @@ def get_unified_people(
     persona_filter="all",
     status_filter="all",
     contact_type_filter="all",
-    event_id=None
+    event_id=None,
+    user_id=None
 ):
     """
     Unified query combining Cvent Creators (PostgreSQL) and Discovered Leaders (SQLite candidates).
@@ -1297,6 +1325,11 @@ def get_unified_people(
     dom_clean = (company_domain or "all").lower().strip()
 
     # 1. Fetch Apollo Candidates from SQLite
+    assigned_ids = get_user_assigned_company_ids(user_id) if user_id is not None else None
+    assigned_doms = get_user_assigned_company_domains(user_id) if user_id is not None else None
+    if user_id is not None and not assigned_ids and not assigned_doms:
+        return {"people": [], "total": 0, "limit": limit, "offset": offset}
+
     candidates = []
     conn_sq = sqlite3.connect("cvent_cache.db")
     cur_sq = conn_sq.cursor()
@@ -1305,8 +1338,18 @@ def get_unified_people(
     sq_params = []
 
     if dom_clean != "all" and dom_clean != "":
-        sq_conds.append("LOWER(domain) = ?")
-        sq_params.append(dom_clean)
+        if assigned_doms is not None and dom_clean not in assigned_doms:
+            sq_conds.append("1=0")
+        else:
+            sq_conds.append("LOWER(domain) = ?")
+            sq_params.append(dom_clean)
+    elif assigned_doms is not None:
+        if assigned_doms:
+            placeholders = ",".join("?" for _ in assigned_doms)
+            sq_conds.append(f"LOWER(domain) IN ({placeholders})")
+            sq_params.extend(list(assigned_doms))
+        else:
+            sq_conds.append("1=0")
 
     if persona_filter in ("P1", "P2"):
         sq_conds.append("persona = ?")
@@ -1362,11 +1405,19 @@ def get_unified_people(
         pg_params = []
 
         if dom_clean != "all" and dom_clean != "":
-            pg_conds.append("(LOWER(comp.domain) = %s OR LOWER(split_part(p.email, '@', 2)) = %s)")
-            pg_params.extend([dom_clean, dom_clean])
-            # When filtering to a company, only include genuine named creators (not regional email inboxes or empty dashes)
-            if persona_filter != "creator":
-                pg_conds.append("p.is_creator_email = TRUE AND p.contact_name IS NOT NULL AND p.contact_name != '-' AND p.contact_name != ''")
+            if assigned_doms is not None and dom_clean not in assigned_doms:
+                pg_conds.append("1=0")
+            else:
+                pg_conds.append("(LOWER(comp.domain) = %s OR LOWER(split_part(p.email, '@', 2)) = %s)")
+                pg_params.extend([dom_clean, dom_clean])
+                if persona_filter != "creator":
+                    pg_conds.append("p.is_creator_email = TRUE AND p.contact_name IS NOT NULL AND p.contact_name != '-' AND p.contact_name != ''")
+        elif assigned_ids is not None:
+            if assigned_ids:
+                id_list = ",".join(str(i) for i in assigned_ids)
+                pg_conds.append(f"comp.id IN ({id_list})")
+            else:
+                pg_conds.append("1=0")
 
         if search_clean:
             s = f"%{search_clean}%"
@@ -1441,3 +1492,256 @@ def get_unified_people(
         "limit": limit,
         "offset": offset
     }
+
+
+# ==============================================================================
+# USER MANAGEMENT & ROLE-BASED ACCESS CONTROL (RBAC)
+# ==============================================================================
+
+def init_user_tables():
+    """Ensure cvent_users and cvent_user_company_assignments exist with default admin."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cvent_users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            full_name VARCHAR(150) DEFAULT '',
+            role VARCHAR(20) DEFAULT 'user',
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cvent_user_company_assignments (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES cvent_users(id) ON DELETE CASCADE,
+            company_id INTEGER NOT NULL REFERENCES cvent_companies(id) ON DELETE CASCADE,
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, company_id)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_uca_user_id ON cvent_user_company_assignments(user_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_uca_company_id ON cvent_user_company_assignments(company_id);")
+
+    # Seed default admin if none exists
+    cur.execute("SELECT id FROM cvent_users WHERE role = 'admin' LIMIT 1")
+    admin_row = cur.fetchone()
+    if not admin_row:
+        from werkzeug.security import generate_password_hash
+        p_hash = generate_password_hash("admin123")
+        cur.execute("""
+            INSERT INTO cvent_users (username, password_hash, full_name, role, is_active)
+            VALUES ('admin', %s, 'Administrator', 'admin', TRUE)
+            ON CONFLICT (username) DO NOTHING
+        """, (p_hash,))
+    conn.commit()
+    conn.close()
+
+
+def create_user(username: str, password: str, full_name: str = "", role: str = "user") -> dict:
+    """Create a new user with hashed password."""
+    from werkzeug.security import generate_password_hash
+    username = (username or "").strip().lower()
+    if not username:
+        return {"error": "Username is required"}
+    if not password or len(password) < 4:
+        return {"error": "Password must be at least 4 characters"}
+    if role not in ("admin", "user"):
+        role = "user"
+
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    try:
+        p_hash = generate_password_hash(password)
+        cur.execute("""
+            INSERT INTO cvent_users (username, password_hash, full_name, role, is_active, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, TRUE, NOW(), NOW())
+            RETURNING id, username, full_name, role, is_active, created_at
+        """, (username, p_hash, full_name.strip(), role))
+        row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return dict(row) if hasattr(row, "keys") else {
+            "id": row[0], "username": row[1], "full_name": row[2], "role": row[3], "is_active": row[4], "created_at": row[5]
+        }
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        if "unique" in str(e).lower():
+            return {"error": f"Username '{username}' already exists"}
+        return {"error": str(e)}
+
+
+def authenticate_user(username: str, password: str) -> dict:
+    """Verify user credentials and return user object if valid."""
+    from werkzeug.security import check_password_hash
+    username = (username or "").strip().lower()
+    if not username or not password:
+        return {"error": "Username and password required"}
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT id, username, password_hash, full_name, role, is_active
+        FROM cvent_users
+        WHERE LOWER(username) = %s
+    """, (username,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return {"error": "Invalid username or password"}
+    d = dict(row) if hasattr(row, "keys") else {
+        "id": row[0], "username": row[1], "password_hash": row[2], "full_name": row[3], "role": row[4], "is_active": row[5]
+    }
+    if not d.get("is_active", True):
+        return {"error": "This user account is deactivated"}
+    if not check_password_hash(d["password_hash"], password):
+        return {"error": "Invalid username or password"}
+    del d["password_hash"]
+    return d
+
+
+def get_user_by_id(user_id: int) -> dict:
+    """Get user details by ID."""
+    if not user_id:
+        return None
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT id, username, full_name, role, is_active, created_at
+        FROM cvent_users
+        WHERE id = %s
+    """, (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(row) if hasattr(row, "keys") else {
+        "id": row[0], "username": row[1], "full_name": row[2], "role": row[3], "is_active": row[4], "created_at": row[5]
+    }
+
+
+def get_all_users() -> list:
+    """Get all users with their assigned company counts for Admin dashboard."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.created_at,
+               COUNT(uca.company_id) as assigned_companies_count
+        FROM cvent_users u
+        LEFT JOIN cvent_user_company_assignments uca ON uca.user_id = u.id
+        GROUP BY u.id
+        ORDER BY u.role ASC, u.id ASC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    users = []
+    for r in rows:
+        d = dict(r) if hasattr(r, "keys") else {
+            "id": r[0], "username": r[1], "full_name": r[2], "role": r[3], "is_active": r[4], "created_at": r[5],
+            "assigned_companies_count": r[6]
+        }
+        users.append(d)
+    return users
+
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by ID."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("DELETE FROM cvent_users WHERE id = %s", (user_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def update_user_password(user_id: int, new_password: str) -> dict:
+    """Update password for a specific user."""
+    from werkzeug.security import generate_password_hash
+    if not new_password or len(new_password) < 4:
+        return {"error": "Password must be at least 4 characters"}
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    p_hash = generate_password_hash(new_password)
+    cur.execute("UPDATE cvent_users SET password_hash = %s, updated_at = NOW() WHERE id = %s", (p_hash, user_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+def get_user_assigned_company_ids(user_id: int) -> list:
+    """Return list of company IDs assigned to user."""
+    if not user_id:
+        return []
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("SELECT company_id FROM cvent_user_company_assignments WHERE user_id = %s", (user_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [(r["company_id"] if hasattr(r, "keys") else r[0]) for r in rows]
+
+
+def get_user_assigned_company_domains(user_id: int) -> set:
+    """Return set of lowercase company domains assigned to user."""
+    if not user_id:
+        return set()
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT LOWER(c.domain) as domain
+        FROM cvent_companies c
+        JOIN cvent_user_company_assignments uca ON uca.company_id = c.id
+        WHERE uca.user_id = %s AND c.domain != '' AND c.domain IS NOT NULL
+    """, (user_id,))
+    rows = cur.fetchall()
+    conn.close()
+    domains = set()
+    for r in rows:
+        dom = (r["domain"] if hasattr(r, "keys") else r[0])
+        if dom:
+            domains.add(dom.strip().lower())
+    return domains
+
+
+def get_user_assigned_companies(user_id: int) -> list:
+    """Return full company objects assigned to a specific user."""
+    if not user_id:
+        return []
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("""
+        SELECT c.*, COUNT(cv.id) as event_count
+        FROM cvent_companies c
+        JOIN cvent_user_company_assignments uca ON uca.company_id = c.id
+        LEFT JOIN cvent cv ON cv.company_id = c.id
+        WHERE uca.user_id = %s
+        GROUP BY c.id
+        ORDER BY c.name ASC
+    """, (user_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def set_user_company_assignments(user_id: int, company_ids: list) -> dict:
+    """Replace full set of assigned companies for a specific user."""
+    conn = get_connection()
+    cur = conn.cursor() if hasattr(conn, "cursor") else conn
+    cur.execute("DELETE FROM cvent_user_company_assignments WHERE user_id = %s", (user_id,))
+    assigned_count = 0
+    for cid in set(company_ids):
+        try:
+            cid_int = int(cid)
+            cur.execute("""
+                INSERT INTO cvent_user_company_assignments (user_id, company_id)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id, company_id) DO NOTHING
+            """, (user_id, cid_int))
+            assigned_count += 1
+        except Exception:
+            pass
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "user_id": user_id, "assigned_count": assigned_count}
