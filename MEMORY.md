@@ -14,7 +14,7 @@ The core architecture follows the manager-approved 3-stage hierarchy:
 
 $$\mathbf{Events} \longrightarrow \mathbf{Companies} \longrightarrow \mathbf{People}$$
 
-1. **Events Tab:** 761 Cvent event registrations crawled from public Cvent landing pages.
+1. **Events Tab:** 761 Cvent event registrations with 13 discrete columns (including dedicated separate columns for **Organizer Name** and **Website**).
 2. **Companies Tab:** 393 verified corporate, academic, and government organizations extracted from organizer domains.
 3. **People Tab:** 2,891 unified outbound targets combining Cvent Event Creators (PostgreSQL) and Apollo-discovered P1/P2 Decision-Makers (SQLite cache).
 

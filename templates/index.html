@@ -682,7 +682,8 @@
                 <th width="105">Event URL</th>
                 <th>Event Date</th>
                 <th>Location</th>
-                <th>Organizer Name &amp; Website</th>
+                <th>Organizer Name</th>
+                <th>Website</th>
                 <th width="105">No. of Emails</th>
                 <th>Organizer Email</th>
                 <th width="135">Scraped At</th>
@@ -690,7 +691,7 @@
               </tr>
             </thead>
             <tbody id="eventsTableBody">
-              <tr><td colspan="12" class="empty-state"><div class="spinner"></div> Loading Cvent events...</td></tr>
+              <tr><td colspan="13" class="empty-state"><div class="spinner"></div> Loading Cvent events...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1192,7 +1193,7 @@
       const search = document.getElementById("eventSearch").value.trim();
       const status = document.getElementById("eventStatusFilter").value;
       const tbody = document.getElementById("eventsTableBody");
-      tbody.innerHTML = `<tr><td colspan="12" class="empty-state"><div class="spinner"></div> Loading Cvent events...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" class="empty-state"><div class="spinner"></div> Loading Cvent events...</td></tr>`;
 
       try {
         const res = await fetch(`/api/events?limit=${eventLimit}&offset=${offset}&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`);
@@ -1230,7 +1231,7 @@
     function renderEventsTable(events, total) {
       const tbody = document.getElementById("eventsTableBody");
       if (!events || events.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" class="empty-state">No events matching criteria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="empty-state">No events matching criteria.</td></tr>`;
         document.getElementById("eventPaginationInfo").innerText = "Showing 0 of 0 events";
         return;
       }
@@ -1251,7 +1252,9 @@
         
         const orgName = e.company_name || e.organizer_company || '-';
         const orgWeb = e.organizer_website || (e.company_domain ? `https://${e.company_domain}` : (e.event_url && !e.event_url.includes('cvent.com') ? e.event_url : ''));
-        const orgSub = orgWeb ? `<br><a href="${orgWeb}" target="_blank" style="font-size:11px; color:#38bdf8;">🌐 ${escapeHtml(orgWeb.replace(/^https?:\/\/(www\.)?/, ''))}</a>` : '';
+        const webDisplay = orgWeb
+          ? `<a href="${orgWeb}" target="_blank" style="font-size:12px; font-weight:600; color:#38bdf8;">🌐 ${escapeHtml(orgWeb.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))} ↗</a>`
+          : `<span style="color:var(--text-dim);">-</span>`;
 
         const emailCount = e.email_count || 0;
         const countBadge = `<span class="badge ${emailCount > 0 ? 'badge-complete' : 'badge-incomplete'}" style="cursor:pointer;" title="Click to view contacts in People tab" onclick="filterPeopleByEvent(${e.id}, '${escapeHtml((e.event_name || '').replace(/'/g, ''))}')">${emailCount} ${emailCount === 1 ? 'email' : 'emails'} 👥</span>`;
@@ -1279,7 +1282,9 @@
             <td style="font-size: 12px; max-width: 200px;">${escapeHtml(location)}</td>
             <td>
               <strong>${escapeHtml(orgName)}</strong>
-              ${orgSub}
+            </td>
+            <td>
+              ${webDisplay}
             </td>
             <td>${countBadge}</td>
             <td>${emailChip}</td>
