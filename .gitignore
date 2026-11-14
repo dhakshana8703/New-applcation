@@ -1,4 +1,10 @@
 .env
+.env*
+.apollo_key
+*.key
+*.pem
+credentials*
+secrets*
 __pycache__/
 *.pyc
 *.pyo

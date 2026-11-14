@@ -369,6 +369,7 @@ def api_test_url():
 # ==============================================================================
 
 @app.route("/api/apollo/status", methods=["GET"])
+@require_admin
 def api_apollo_status():
     from apollo_enricher import ApolloEnricher, apollo_worker, get_apollo_api_key
     from credit_tracker import credit_tracker
@@ -441,6 +442,7 @@ def api_apollo_start_batch():
 
 
 @app.route("/api/apollo/batch-status", methods=["GET"])
+@require_admin
 def api_apollo_batch_status():
     """Polls real-time worker progress and credit expenditures."""
     from apollo_enricher import apollo_worker
